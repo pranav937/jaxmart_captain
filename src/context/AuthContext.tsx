@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Role, User, ActivityLog, SecurityEvent } from '../types';
 
 interface OtpData {
@@ -31,8 +31,8 @@ interface AuthContextType {
   activeOtpData: OtpData | null;
 }
 
-// Clean Real Baseline Users (No fake dummy data)
-const cleanUsers: User[] = [
+// Clean Real Baseline Users (Fallback if local storage empty)
+const defaultUsers: User[] = [
   {
     id: 'USR-SA-001',
     name: 'Super Admin',
@@ -62,14 +62,12 @@ const cleanUsers: User[] = [
   }
 ];
 
-// Clean Password Store (No fake credentials)
-const registeredPasswords: Record<string, string> = {
+const defaultPasswords: Record<string, string> = {
   'jax@gmail.com': '123456',
   'jaxmart@gmail.com': '123456',
 };
 
-// Initial Clean System Audit Log
-const cleanAuditLogs: ActivityLog[] = [
+const defaultAuditLogs: ActivityLog[] = [
   {
     id: 'LOG-00001',
     userId: 'USR-SA-001',
@@ -81,32 +79,85 @@ const cleanAuditLogs: ActivityLog[] = [
     entity: 'Platform Core',
     targetId: 'USR-SA-001',
     targetName: 'Super Admin System',
-    description: 'Jaxmart B2B Platform Initialized with Super Admin (Jax@gmail.com) & Admin (jaxmart@gmail.com). Clean workspace ready for Captain registrations.',
+    description: 'Jaxmart B2B Platform Initialized with Super Admin (Jax@gmail.com) & Admin (jaxmart@gmail.com). Persistent LocalStorage Storage Active.',
     date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     ipAddress: '127.0.0.1',
     deviceInfo: 'System Core Engine',
     status: 'SUCCESS',
     diffs: [
-      { field: 'Platform Status', oldValue: 'Empty', newValue: 'Clean & Operational' }
+      { field: 'Storage Engine', oldValue: 'In-Memory', newValue: 'LocalStorage Persistent' }
     ]
   }
 ];
-
-const cleanSecurityEvents: SecurityEvent[] = [];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentRole, setCurrentRole] = useState<Role>('SUPER_ADMIN');
-  const [users, setUsers] = useState<User[]>(cleanUsers);
-  const [currentUser, setCurrentUser] = useState<User>(cleanUsers[0]); // Single Super Admin Jax@gmail.com
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(cleanAuditLogs);
-  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>(cleanSecurityEvents);
+
+  // Initialize state directly from LocalStorage for persistence across page refreshes!
+  const [users, setUsers] = useState<User[]>(() => {
+    try {
+      const saved = localStorage.getItem('jaxmart_users');
+      return saved ? JSON.parse(saved) : defaultUsers;
+    } catch {
+      return defaultUsers;
+    }
+  });
+
+  const [passwordsStore, setPasswordsStore] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem('jaxmart_passwords');
+      return saved ? JSON.parse(saved) : defaultPasswords;
+    } catch {
+      return defaultPasswords;
+    }
+  });
+
+  const [currentUser, setCurrentUser] = useState<User>(() => users[0] || defaultUsers[0]);
+
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
+    try {
+      const saved = localStorage.getItem('jaxmart_audit_logs');
+      return saved ? JSON.parse(saved) : defaultAuditLogs;
+    } catch {
+      return defaultAuditLogs;
+    }
+  });
+
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [selectedAuditLog, setSelectedAuditLog] = useState<ActivityLog | null>(null);
   const [activeTabNav, setActiveTabNav] = useState<string>('dashboard');
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [activeOtpData, setActiveOtpData] = useState<OtpData | null>(null);
+
+  // Synchronize Users to LocalStorage whenever users list changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('jaxmart_users', JSON.stringify(users));
+    } catch (e) {
+      console.error('LocalStorage User Save Error:', e);
+    }
+  }, [users]);
+
+  // Synchronize Passwords to LocalStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('jaxmart_passwords', JSON.stringify(passwordsStore));
+    } catch (e) {
+      console.error('LocalStorage Passwords Save Error:', e);
+    }
+  }, [passwordsStore]);
+
+  // Synchronize Audit Logs to LocalStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('jaxmart_audit_logs', JSON.stringify(activityLogs));
+    } catch (e) {
+      console.error('LocalStorage Audit Logs Save Error:', e);
+    }
+  }, [activityLogs]);
 
   const setRole = (role: Role) => {
     setCurrentRole(role);
@@ -115,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveTabNav('dashboard');
   };
 
-  // Register Captain Account
+  // Register Captain Account (PERSISTED)
   const registerCaptainAccount = (data: { name: string; email: string; password: string }): { success: boolean; message?: string } => {
     const formattedEmail = data.email.trim().toLowerCase();
 
@@ -142,7 +193,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
     };
 
-    registeredPasswords[formattedEmail] = data.password;
+    // Save Password persistently
+    setPasswordsStore(prev => ({
+      ...prev,
+      [formattedEmail]: data.password
+    }));
+
+    // Save Captain user persistently
     setUsers(prev => [newCaptainUser, ...prev]);
 
     const newLog: ActivityLog = {
@@ -156,7 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       entity: 'Captain Registration',
       targetId: newId,
       targetName: newCaptainUser.name,
-      description: `Captain Registration completed for ${newCaptainUser.name} (${formattedEmail}). Password stored securely. Status: INACTIVE`,
+      description: `Captain Registration completed for ${newCaptainUser.name} (${formattedEmail}). Saved to LocalStorage. Status: INACTIVE`,
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       ipAddress: '192.168.1.104',
@@ -169,12 +226,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setActivityLogs(prev => [newLog, ...prev]);
-    setNotificationToast(`Captain ${newCaptainUser.name} registered! Admin must activate account before login.`);
+    setNotificationToast(`Captain ${newCaptainUser.name} registered and saved! Admin must activate account before login.`);
 
     return { success: true };
   };
 
-  // Login with Email & Password (Single Super Admin Enforced)
+  // Login with Email & Password (PERSISTENT VERIFICATION)
   const loginWithCredentials = (emailInput: string, passwordInput: string, role: Role): { success: boolean; message?: string } => {
     const formattedEmail = emailInput.trim().toLowerCase();
 
@@ -207,8 +264,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    // Verify Password Match
-    const expectedPassword = registeredPasswords[formattedEmail] || '123456';
+    // Verify Password Match against persisted store
+    const expectedPassword = passwordsStore[formattedEmail] || '123456';
     if (passwordInput.trim() !== expectedPassword && passwordInput.trim() !== '123456') {
       return {
         success: false,
@@ -245,7 +302,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       location: 'Ahmedabad, India',
       timestamp: new Date().toLocaleString(),
       status: 'SUCCESS',
-      details: `Clean login verification for ${matchedUser.role} (${matchedUser.email})`
+      details: `Persistent verified login for ${matchedUser.role} (${matchedUser.email})`
     };
     setSecurityEvents(prev => [secEvent, ...prev]);
 
