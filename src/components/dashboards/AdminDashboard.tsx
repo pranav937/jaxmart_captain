@@ -15,7 +15,7 @@ export const AdminDashboard: React.FC<DashboardProps> = ({ onNavigateTab }) => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Toast Banner if status changed */}
       {notificationToast && (
         <div className="bg-emerald-600 text-white p-4 rounded-xl shadow-jaxmart-lg flex items-center justify-between text-xs font-semibold animate-in fade-in duration-300">
@@ -156,9 +156,8 @@ export const AdminDashboard: React.FC<DashboardProps> = ({ onNavigateTab }) => {
                     <td className="p-3.5 font-bold text-jaxmart-primary">{cap.sellersCount || 0} Sellers</td>
 
                     <td className="p-3.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-jaxmart-error'
-                      }`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-jaxmart-error'
+                        }`}>
                         {isActive ? 'ACTIVE (Can Sign In)' : 'INACTIVE (Login Blocked)'}
                       </span>
                     </td>

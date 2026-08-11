@@ -32,11 +32,10 @@ export const RoleSwitcherBanner: React.FC = () => {
               <button
                 key={role}
                 onClick={() => setRole(role)}
-                className={`flex items-center space-x-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                  isActive
+                className={`flex items-center space-x-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${isActive
                     ? 'bg-jaxmart-teal text-white shadow-sm ring-2 ring-white/20'
                     : 'bg-white/10 text-gray-200 hover:bg-white/20'
-                }`}
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{label}</span>

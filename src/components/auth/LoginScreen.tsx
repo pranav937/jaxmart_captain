@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Role, User } from '../../types';
-import { Mail, KeyRound, ArrowRight, ShieldCheck, AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 interface LoginScreenProps {
   onSuccessLogin: () => void;
@@ -9,15 +9,12 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForgotPasswordClick }) => {
-  const { users, verifyAdminOtp, sendAdminOtp } = useAuth();
-  const [selectedRole, setSelectedRole] = useState<Role>('ADMIN');
-  const [selectedUser, setSelectedUser] = useState<User>(
-    users.find(u => u.role === 'ADMIN') || users[0]
-  );
+  const { users, loginWithCredentials } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<Role>('SUPER_ADMIN');
   
-  // Both Email ID & OTP fields together on screen as requested
-  const [emailInput, setEmailInput] = useState('jaxmart@gmail.com');
-  const [otpInput, setOtpInput] = useState('123456');
+  // Email & Password Fields (Default Super Admin: Jax@gmail.com / 123456)
+  const [emailInput, setEmailInput] = useState('Jax@gmail.com');
+  const [passwordInput, setPasswordInput] = useState('123456');
   
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,37 +25,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
     setSelectedRole(role);
     const matched = users.find(u => u.role === role);
     if (matched) {
-      setSelectedUser(matched);
       setEmailInput(matched.email);
+    } else if (role === 'SUPER_ADMIN') {
+      setEmailInput('Jax@gmail.com');
     }
+    setPasswordInput('123456');
     setErrorMessage(null);
   };
 
-  const handleUserSelect = (userId: string) => {
-    const matched = users.find(u => u.id === userId);
-    if (matched) {
-      setSelectedUser(matched);
-      setEmailInput(matched.email);
-      setErrorMessage(null);
-    }
+  const handleUserSelect = (user: User) => {
+    setEmailInput(user.email);
+    setPasswordInput('123456');
+    setErrorMessage(null);
   };
 
-  // Verify Email ID & OTP together
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMessage(null);
 
     setTimeout(() => {
-      // Initialize OTP session in backend
-      sendAdminOtp(emailInput);
-      
-      // Verify both Email ID and OTP 123456
-      const res = verifyAdminOtp(emailInput, otpInput);
+      const res = loginWithCredentials(emailInput, passwordInput, selectedRole);
       setLoading(false);
 
       if (!res.success) {
-        setErrorMessage(res.message || 'Login failed. Invalid Email ID or OTP.');
+        setErrorMessage(res.message || 'Login failed.');
       } else {
         onSuccessLogin();
       }
@@ -79,20 +70,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
           </span>
         </div>
         <h2 className="mt-4 text-2xl font-bold tracking-tight text-jaxmart-navy">
-          Admin Portal Authentication
+          Platform Authentication Portal
         </h2>
         <p className="mt-1 text-xs text-gray-500">
-          Sign in with Email ID & 6-Digit OTP (Default: <strong className="text-jaxmart-teal">123456</strong>)
+          Super Admin Email: <strong className="text-jaxmart-teal">Jax@gmail.com</strong> | Password: <strong className="text-jaxmart-teal">123456</strong>
         </p>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-lg px-4">
         <div className="bg-white py-8 px-6 shadow-jaxmart-lg rounded-xl border border-gray-200 sm:px-10 space-y-5">
           
-          {/* Step 1: Select Role Tab */}
+          {/* Step 1: Role Selector */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-jaxmart-mediumBlue mb-2">
-              1. Select Authentication Role
+              1. Select Role
             </label>
             <div className="grid grid-cols-4 gap-1.5 bg-jaxmart-bg p-1 rounded-lg border border-gray-200">
               {(['SUPER_ADMIN', 'ADMIN', 'CAPTAIN', 'SELLER'] as Role[]).map((r) => (
@@ -112,34 +103,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
             </div>
           </div>
 
-          {/* Step 2: Select Specific Account */}
+          {/* Quick Select Accounts List */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-jaxmart-mediumBlue mb-1.5">
-              2. Select Target Account
+              2. Registered {selectedRole.replace('_', ' ')} Accounts
             </label>
             <div className="space-y-2">
               {availableUsers.map((u) => {
-                const isSelected = selectedUser.id === u.id;
+                const isSelected = emailInput.toLowerCase() === u.email.toLowerCase();
                 const isActive = u.status === 'ACTIVE';
 
                 return (
                   <div
                     key={u.id}
-                    onClick={() => handleUserSelect(u.id)}
+                    onClick={() => handleUserSelect(u)}
                     className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center justify-between ${
                       isSelected
                         ? isActive
-                          ? 'border-jaxmart-teal bg-teal-50/50 ring-2 ring-jaxmart-teal/20'
-                          : 'border-jaxmart-error bg-red-50/50 ring-2 ring-jaxmart-error/20'
+                          ? 'border-jaxmart-teal bg-teal-50/50 ring-2 ring-jaxmart-teal/20 font-bold'
+                          : 'border-jaxmart-error bg-red-50/50 ring-2 ring-jaxmart-error/20 font-bold'
                         : 'border-gray-200 bg-jaxmart-bg hover:border-gray-300'
                     }`}
                   >
                     <div className="flex items-center space-x-3">
                       <img src={u.avatarUrl} alt="" className="w-8 h-8 rounded-full border" />
                       <div>
-                        <div className="text-xs font-bold text-jaxmart-navy flex items-center space-x-2">
-                          <span>{u.name}</span>
-                          {u.companyName && <span className="text-[10px] text-gray-500 font-normal">({u.companyName})</span>}
+                        <div className="text-xs font-bold text-jaxmart-navy">
+                          {u.name}
                         </div>
                         <div className="text-[10px] text-gray-500">{u.email}</div>
                       </div>
@@ -158,35 +148,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
 
           {/* Error Message Alert */}
           {errorMessage && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl space-y-1.5 text-xs text-jaxmart-error">
-              <div className="flex items-center space-x-2 font-bold">
-                <AlertTriangle className="w-4 h-4 text-jaxmart-error shrink-0" />
-                <span>Authentication Failed</span>
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl space-y-2 text-xs text-jaxmart-error">
+              <div className="flex items-start space-x-2 font-bold">
+                <AlertTriangle className="w-4 h-4 text-jaxmart-error shrink-0 mt-0.5" />
+                <span>Authentication Error</span>
               </div>
               <p className="text-gray-700 leading-relaxed">{errorMessage}</p>
-
-              <div className="pt-2 border-t border-red-200 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (selectedRole === 'CAPTAIN') handleRoleChange('ADMIN');
-                    if (selectedRole === 'SELLER') handleRoleChange('CAPTAIN');
-                  }}
-                  className="px-3 py-1.5 bg-jaxmart-primary text-white rounded text-[11px] font-bold hover:bg-jaxmart-navy"
-                >
-                  Switch to Admin to Activate Account
-                </button>
-              </div>
             </div>
           )}
 
-          {/* SINGLE COMBINED FORM: Email ID + OTP Fields Together */}
+          {/* FORM: Registered Email & Password */}
           <form onSubmit={handleSubmit} className="space-y-4 pt-2 border-t border-gray-100">
             
-            {/* Field 1: Admin Email ID */}
+            {/* Field 1: Email */}
             <div>
               <label className="block text-xs font-bold text-jaxmart-navy mb-1">
-                Admin Email ID *
+                Registered Email Address *
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -196,31 +173,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   className="w-full pl-9 pr-4 py-2.5 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-bold text-jaxmart-navy focus:ring-2 focus:ring-jaxmart-primary/20"
-                  placeholder="jaxmart@gmail.com"
+                  placeholder="Jax@gmail.com"
                 />
               </div>
             </div>
 
-            {/* Field 2: 6-Digit OTP */}
+            {/* Field 2: Password */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-jaxmart-navy">
-                  6-Digit OTP Code *
-                </label>
-                <span className="text-[11px] text-jaxmart-teal font-bold bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                  Default OTP: 123456
-                </span>
-              </div>
+              <label className="block text-xs font-bold text-jaxmart-navy mb-1">
+                Registered Password *
+              </label>
               <div className="relative">
-                <KeyRound className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
-                  type="text"
+                  type="password"
                   required
-                  maxLength={6}
-                  value={otpInput}
-                  onChange={(e) => setOtpInput(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-jaxmart-bg border border-gray-300 rounded-lg text-sm font-mono font-bold text-jaxmart-navy tracking-widest text-center"
-                  placeholder="123456"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-bold text-jaxmart-navy"
+                  placeholder="••••••••••••"
                 />
               </div>
             </div>
@@ -232,10 +203,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
               className="w-full flex justify-center items-center space-x-2 py-3 px-4 rounded-lg shadow-sm text-xs font-bold text-white bg-jaxmart-primary hover:bg-jaxmart-navy transition-all disabled:opacity-50"
             >
               {loading ? (
-                <span>Verifying Email & OTP...</span>
+                <span>Authenticating Credentials...</span>
               ) : (
                 <>
-                  <span>Sign In with Email ID & OTP</span>
+                  <span>Sign In as {selectedRole.replace('_', ' ')}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -244,7 +215,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
 
           <div className="pt-2 text-center text-xs text-gray-400 flex items-center justify-center space-x-1">
             <ShieldCheck className="w-4 h-4 text-jaxmart-teal" />
-            <span>Default Email: <strong>jaxmart@gmail.com</strong> | OTP: <strong>123456</strong></span>
+            <span>Super Admin: <strong>Jax@gmail.com</strong> | Password: <strong>123456</strong></span>
           </div>
 
         </div>

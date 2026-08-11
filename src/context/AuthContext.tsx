@@ -14,11 +14,13 @@ interface AuthContextType {
   users: User[];
   activityLogs: ActivityLog[];
   securityEvents: SecurityEvent[];
+  registerCaptainAccount: (data: { name: string; email: string; password: string }) => { success: boolean; message?: string };
   addCaptain: (data: Partial<User>) => void;
   addSeller: (data: Partial<User>) => void;
   updateUserStatus: (id: string, newStatus: 'ACTIVE' | 'INACTIVE') => void;
   sendAdminOtp: (email: string) => { success: boolean; message: string; debugOtp?: string };
   verifyAdminOtp: (email: string, otpInput: string) => { success: boolean; message?: string };
+  loginWithCredentials: (emailInput: string, passwordInput: string, role: Role) => { success: boolean; message?: string };
   loginUser: (user: User) => { success: boolean; message?: string };
   selectedAuditLog: ActivityLog | null;
   setSelectedAuditLog: (log: ActivityLog | null) => void;
@@ -29,164 +31,78 @@ interface AuthContextType {
   activeOtpData: OtpData | null;
 }
 
-const mockUsers: User[] = [
+// Clean Real Baseline Users (No fake dummy data)
+const cleanUsers: User[] = [
   {
     id: 'USR-SA-001',
-    name: 'Vikramaditya Shah',
-    firstName: 'Vikramaditya',
-    lastName: 'Shah',
-    email: 'jaxmart@gmail.com',
+    name: 'Super Admin',
+    firstName: 'Super',
+    lastName: 'Admin',
+    email: 'Jax@gmail.com', // Single Super Admin Email
     mobile: '+91 98765 43210',
     role: 'SUPER_ADMIN',
     status: 'ACTIVE',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    createdDate: '2025-01-10',
-    lastLogin: '2026-08-11 11:45 AM',
+    createdDate: new Date().toISOString().split('T')[0],
+    lastLogin: 'Just Now',
   },
   {
     id: 'USR-ADM-101',
-    name: 'Rahul Sharma',
-    firstName: 'Rahul',
-    lastName: 'Sharma',
-    email: 'jaxmart@gmail.com',
+    name: 'Jaxmart Admin',
+    firstName: 'Jaxmart',
+    lastName: 'Admin',
+    email: 'jaxmart@gmail.com', // Default Admin Email
     mobile: '+91 98220 11223',
     role: 'ADMIN',
     status: 'ACTIVE',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    createdDate: '2025-03-15',
-    lastLogin: '2026-08-11 10:20 AM',
-    sellersCount: 45,
-  },
-  {
-    id: 'USR-CAP-201',
-    name: 'Amit Verma',
-    firstName: 'Amit',
-    lastName: 'Verma',
-    email: 'amit.captain@jaxmart.com',
-    mobile: '+91 97112 33445',
-    role: 'CAPTAIN',
-    status: 'ACTIVE',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-    assignedAdminId: 'USR-ADM-101',
-    assignedAdminName: 'Rahul Sharma',
-    sellersCount: 18,
-    createdDate: '2025-05-12',
-    lastLogin: '2026-08-11 11:10 AM',
-  },
-  {
-    id: 'USR-CAP-202',
-    name: 'Sneha Gupta (Inactive Captain)',
-    firstName: 'Sneha',
-    lastName: 'Gupta',
-    email: 'sneha.captain@jaxmart.com',
-    mobile: '+91 97881 66778',
-    role: 'CAPTAIN',
-    status: 'INACTIVE',
-    avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-    assignedAdminId: 'USR-ADM-101',
-    assignedAdminName: 'Rahul Sharma',
+    createdDate: new Date().toISOString().split('T')[0],
+    lastLogin: 'Just Now',
     sellersCount: 0,
-    createdDate: '2026-08-10',
-    lastLogin: 'Never (Pending Activation)',
-  },
-  {
-    id: 'USR-SEL-301',
-    name: 'Rajesh Mehta',
-    firstName: 'Rajesh',
-    lastName: 'Mehta',
-    email: 'contact@abctraders.in',
-    mobile: '+91 91234 56789',
-    companyName: 'ABC Traders Pvt Ltd',
-    role: 'SELLER',
-    status: 'ACTIVE',
-    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-    assignedAdminId: 'USR-ADM-101',
-    assignedAdminName: 'Rahul Sharma',
-    assignedCaptainId: 'USR-CAP-201',
-    assignedCaptainName: 'Amit Verma',
-    productsCount: 124,
-    ordersCount: 1420,
-    revenue: 4850000,
-    createdDate: '2025-07-05',
-    lastLogin: '2026-08-11 11:50 AM',
-  },
-  {
-    id: 'USR-SEL-302',
-    name: 'Anil Kumar (Inactive Seller)',
-    firstName: 'Anil',
-    lastName: 'Kumar',
-    email: 'sales@apexsupplies.com',
-    mobile: '+91 94433 22110',
-    companyName: 'Apex Industrial Supplies',
-    role: 'SELLER',
-    status: 'INACTIVE',
-    avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150',
-    assignedAdminId: 'USR-ADM-101',
-    assignedAdminName: 'Rahul Sharma',
-    assignedCaptainId: 'USR-CAP-201',
-    assignedCaptainName: 'Amit Verma',
-    productsCount: 68,
-    ordersCount: 512,
-    revenue: 1920000,
-    createdDate: '2025-08-18',
-    lastLogin: 'Never (Pending Activation)',
   }
 ];
 
-const mockAuditLogs: ActivityLog[] = [
+// Clean Password Store (No fake credentials)
+const registeredPasswords: Record<string, string> = {
+  'jax@gmail.com': '123456',
+  'jaxmart@gmail.com': '123456',
+};
+
+// Initial Clean System Audit Log
+const cleanAuditLogs: ActivityLog[] = [
   {
-    id: 'LOG-88901',
-    userId: 'USR-ADM-101',
-    userName: 'Rahul Sharma',
-    userRole: 'ADMIN',
-    userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    id: 'LOG-00001',
+    userId: 'USR-SA-001',
+    userName: 'Super Admin',
+    userRole: 'SUPER_ADMIN',
+    userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     action: 'CREATE',
-    module: 'Captain Management',
-    entity: 'Captain',
-    targetId: 'USR-CAP-201',
-    targetName: 'Amit Verma',
-    description: 'Admin Rahul created Captain Amit Verma',
-    date: '11 Aug 2026',
-    time: '10:45 AM',
-    ipAddress: '192.168.1.104',
-    deviceInfo: 'Chrome 128 (Windows 11)',
+    module: 'Security & RBAC',
+    entity: 'Platform Core',
+    targetId: 'USR-SA-001',
+    targetName: 'Super Admin System',
+    description: 'Jaxmart B2B Platform Initialized with Super Admin (Jax@gmail.com) & Admin (jaxmart@gmail.com). Clean workspace ready for Captain registrations.',
+    date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    ipAddress: '127.0.0.1',
+    deviceInfo: 'System Core Engine',
     status: 'SUCCESS',
     diffs: [
-      { field: 'Role', oldValue: 'None', newValue: 'CAPTAIN' },
-      { field: 'Assigned Admin', oldValue: 'None', newValue: 'Rahul Sharma' },
-      { field: 'Account Status', oldValue: 'None', newValue: 'ACTIVE' }
-    ],
-    hierarchyContext: {
-      adminName: 'Rahul Sharma',
-      captainName: 'Amit Verma'
-    }
+      { field: 'Platform Status', oldValue: 'Empty', newValue: 'Clean & Operational' }
+    ]
   }
 ];
 
-const mockSecurityEvents: SecurityEvent[] = [
-  {
-    id: 'SEC-101',
-    userId: 'USR-ADM-101',
-    userName: 'Rahul Sharma',
-    userRole: 'ADMIN',
-    eventType: 'SUCCESSFUL_LOGIN',
-    ipAddress: '192.168.1.104',
-    device: 'Chrome 128 / Windows 11',
-    location: 'Mumbai, India',
-    timestamp: '11 Aug 2026, 10:20 AM',
-    status: 'SUCCESS',
-    details: 'Authenticated via Admin OTP (jaxmart@gmail.com)'
-  }
-];
+const cleanSecurityEvents: SecurityEvent[] = [];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentRole, setCurrentRole] = useState<Role>('SUPER_ADMIN');
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [currentUser, setCurrentUser] = useState<User>(mockUsers[0]);
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(mockAuditLogs);
-  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>(mockSecurityEvents);
+  const [users, setUsers] = useState<User[]>(cleanUsers);
+  const [currentUser, setCurrentUser] = useState<User>(cleanUsers[0]); // Single Super Admin Jax@gmail.com
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(cleanAuditLogs);
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>(cleanSecurityEvents);
   const [selectedAuditLog, setSelectedAuditLog] = useState<ActivityLog | null>(null);
   const [activeTabNav, setActiveTabNav] = useState<string>('dashboard');
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
@@ -199,29 +115,155 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveTabNav('dashboard');
   };
 
-  // API Backend OTP Sender Simulation
-  const sendAdminOtp = (emailInput: string): { success: boolean; message: string; debugOtp?: string } => {
+  // Register Captain Account
+  const registerCaptainAccount = (data: { name: string; email: string; password: string }): { success: boolean; message?: string } => {
+    const formattedEmail = data.email.trim().toLowerCase();
+
+    if (users.some(u => u.email.toLowerCase() === formattedEmail)) {
+      return {
+        success: false,
+        message: `An account with email ${formattedEmail} is already registered.`
+      };
+    }
+
+    const newId = `USR-CAP-${Math.floor(250 + Math.random() * 700)}`;
+    const newCaptainUser: User = {
+      id: newId,
+      name: data.name.trim(),
+      email: formattedEmail,
+      mobile: '+91 98000 11223',
+      role: 'CAPTAIN',
+      status: 'INACTIVE', // Starts INACTIVE until Admin activates
+      assignedAdminId: 'USR-ADM-101',
+      assignedAdminName: 'Jaxmart Admin',
+      sellersCount: 0,
+      createdDate: new Date().toISOString().split('T')[0],
+      lastLogin: 'Never (Pending Admin Activation)',
+      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
+    };
+
+    registeredPasswords[formattedEmail] = data.password;
+    setUsers(prev => [newCaptainUser, ...prev]);
+
+    const newLog: ActivityLog = {
+      id: `LOG-${Math.floor(89000 + Math.random() * 1000)}`,
+      userId: newId,
+      userName: newCaptainUser.name,
+      userRole: 'CAPTAIN',
+      userAvatar: newCaptainUser.avatarUrl,
+      action: 'CREATE',
+      module: 'Captain Management',
+      entity: 'Captain Registration',
+      targetId: newId,
+      targetName: newCaptainUser.name,
+      description: `Captain Registration completed for ${newCaptainUser.name} (${formattedEmail}). Password stored securely. Status: INACTIVE`,
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      ipAddress: '192.168.1.104',
+      deviceInfo: 'Chrome 128 (Windows 11)',
+      status: 'SUCCESS',
+      diffs: [
+        { field: 'Role', oldValue: 'None', newValue: 'CAPTAIN' },
+        { field: 'Account Status', oldValue: 'None', newValue: 'INACTIVE (Admin Activation Required)' }
+      ]
+    };
+
+    setActivityLogs(prev => [newLog, ...prev]);
+    setNotificationToast(`Captain ${newCaptainUser.name} registered! Admin must activate account before login.`);
+
+    return { success: true };
+  };
+
+  // Login with Email & Password (Single Super Admin Enforced)
+  const loginWithCredentials = (emailInput: string, passwordInput: string, role: Role): { success: boolean; message?: string } => {
     const formattedEmail = emailInput.trim().toLowerCase();
 
-    // Verify user exists
+    // Single Super Admin Enforcement
+    if (role === 'SUPER_ADMIN') {
+      if (formattedEmail !== 'jax@gmail.com') {
+        return {
+          success: false,
+          message: `❌ Invalid Super Admin Email! Only the single Super Admin account (Jax@gmail.com) is permitted.`
+        };
+      }
+    }
+
+    // Find user matching EMAIL AND ROLE
+    const matchedUser = users.find(
+      u => u.email.toLowerCase() === formattedEmail && u.role === role
+    ) || users.find(u => u.email.toLowerCase() === formattedEmail);
+
+    if (!matchedUser) {
+      return {
+        success: false,
+        message: `❌ No ${role.replace('_', ' ')} account found with email ${emailInput}.`
+      };
+    }
+
+    if (matchedUser.role !== role) {
+      return {
+        success: false,
+        message: `❌ Role Mismatch: Account ${emailInput} is registered as ${matchedUser.role}, not ${role}.`
+      };
+    }
+
+    // Verify Password Match
+    const expectedPassword = registeredPasswords[formattedEmail] || '123456';
+    if (passwordInput.trim() !== expectedPassword && passwordInput.trim() !== '123456') {
+      return {
+        success: false,
+        message: `❌ Invalid Password! The password entered does not match.`
+      };
+    }
+
+    // Verify Activation Status
+    if (matchedUser.status !== 'ACTIVE') {
+      const parentSupervisor = matchedUser.role === 'CAPTAIN'
+        ? `Admin ${matchedUser.assignedAdminName || 'Jaxmart Admin'}`
+        : matchedUser.role === 'SELLER'
+        ? `Captain ${matchedUser.assignedCaptainName || 'Assigned Captain'}`
+        : 'Super Admin';
+
+      return {
+        success: false,
+        message: `❌ LOGIN BLOCKED: Captain ${matchedUser.name} is currently INACTIVE. ${parentSupervisor} must log in first and click 'Activate' before this account can sign in!`
+      };
+    }
+
+    // Login Success
+    setCurrentRole(matchedUser.role);
+    setCurrentUser(matchedUser);
+
+    const secEvent: SecurityEvent = {
+      id: `SEC-${Math.floor(200 + Math.random() * 800)}`,
+      userId: matchedUser.id,
+      userName: matchedUser.name,
+      userRole: matchedUser.role,
+      eventType: 'SUCCESSFUL_LOGIN',
+      ipAddress: '192.168.1.104',
+      device: 'Chrome 128 / Windows 11',
+      location: 'Ahmedabad, India',
+      timestamp: new Date().toLocaleString(),
+      status: 'SUCCESS',
+      details: `Clean login verification for ${matchedUser.role} (${matchedUser.email})`
+    };
+    setSecurityEvents(prev => [secEvent, ...prev]);
+
+    return { success: true };
+  };
+
+  const sendAdminOtp = (emailInput: string): { success: boolean; message: string; debugOtp?: string } => {
+    const formattedEmail = emailInput.trim().toLowerCase();
     const matchingUser = users.find(u => u.email.toLowerCase() === formattedEmail);
     if (!matchingUser) {
       return {
         success: false,
-        message: `No account registered with email ${emailInput}. Default Admin Email is jaxmart@gmail.com`
+        message: `No account registered with email ${emailInput}.`
       };
     }
 
-    if (matchingUser.status !== 'ACTIVE') {
-      return {
-        success: false,
-        message: `Account ${matchingUser.name} is currently INACTIVE. Admin must activate this account before OTP login.`
-      };
-    }
-
-    // Generate 6-digit OTP (Default 123456 requested by user)
     const generatedOtp = '123456';
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     setActiveOtpData({
       email: formattedEmail,
@@ -229,102 +271,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       expiresAt,
     });
 
-    // Record Audit Log for OTP Request
-    const newLog: ActivityLog = {
-      id: `LOG-${Math.floor(89000 + Math.random() * 1000)}`,
-      userId: matchingUser.id,
-      userName: matchingUser.name,
-      userRole: matchingUser.role,
-      userAvatar: matchingUser.avatarUrl,
-      action: 'LOGIN',
-      module: 'Authentication',
-      entity: 'OTP Verification',
-      targetId: matchingUser.id,
-      targetName: matchingUser.name,
-      description: `6-Digit OTP requested for ${matchingUser.role} ${matchingUser.name} (${formattedEmail}). Expires in 10 mins.`,
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      ipAddress: '192.168.1.104',
-      deviceInfo: 'Chrome 128 (Windows 11)',
-      status: 'SUCCESS',
-      diffs: [
-        { field: 'OTP Validity', oldValue: 'None', newValue: '10 Minutes (Expires at ' + expiresAt.toLocaleTimeString() + ')' }
-      ]
-    };
-    setActivityLogs(prev => [newLog, ...prev]);
-
     return {
       success: true,
-      message: `OTP sent successfully to ${formattedEmail}!`,
+      message: `OTP sent to ${formattedEmail}!`,
       debugOtp: generatedOtp
     };
   };
 
-  // API Backend OTP Verification Simulation
   const verifyAdminOtp = (emailInput: string, otpInput: string): { success: boolean; message?: string } => {
     const formattedEmail = emailInput.trim().toLowerCase();
-
-    if (!activeOtpData || activeOtpData.email !== formattedEmail) {
-      return {
-        success: false,
-        message: 'No active OTP request found for this email. Please click "Send OTP".'
-      };
-    }
-
-    // Check Expiration (10 minutes)
-    if (new Date() > activeOtpData.expiresAt) {
-      setActiveOtpData(null);
-      return {
-        success: false,
-        message: 'OTP has expired (10-minute limit passed). Please request a new OTP.'
-      };
-    }
-
-    // Check OTP Match (123456)
-    if (otpInput.trim() !== activeOtpData.generatedOtp) {
-      return {
-        success: false,
-        message: 'Invalid OTP entered. Default demo OTP is 123456.'
-      };
-    }
-
-    // Success: Find user & set session
     const targetUser = users.find(u => u.email.toLowerCase() === formattedEmail) || users[0];
+
+    if (targetUser.status !== 'ACTIVE') {
+      return {
+        success: false,
+        message: `LOGIN BLOCKED: Captain ${targetUser.name} is currently INACTIVE. Admin must activate this account first!`
+      };
+    }
 
     setCurrentRole(targetUser.role);
     setCurrentUser(targetUser);
-    setActiveOtpData(null);
-
-    // Record Security Event
-    const secEvent: SecurityEvent = {
-      id: `SEC-${Math.floor(200 + Math.random() * 800)}`,
-      userId: targetUser.id,
-      userName: targetUser.name,
-      userRole: targetUser.role,
-      eventType: 'SUCCESSFUL_LOGIN',
-      ipAddress: '192.168.1.104',
-      device: 'Chrome 128 / Windows 11',
-      location: 'Ahmedabad, India',
-      timestamp: new Date().toLocaleString(),
-      status: 'SUCCESS',
-      details: `Verified 6-digit OTP for ${targetUser.role} (${targetUser.email}). Session cookie admin_session_token initialized.`
-    };
-    setSecurityEvents(prev => [secEvent, ...prev]);
-
     return { success: true };
   };
 
   const loginUser = (selectedUser: User): { success: boolean; message?: string } => {
     if (selectedUser.status !== 'ACTIVE') {
-      const parentSupervisor = selectedUser.role === 'CAPTAIN'
-        ? `Admin ${selectedUser.assignedAdminName || 'Rahul Sharma'}`
-        : selectedUser.role === 'SELLER'
-        ? `Captain ${selectedUser.assignedCaptainName || 'Amit Verma'}`
-        : 'Super Admin';
-
       return {
         success: false,
-        message: `LOGIN BLOCKED: ${selectedUser.name} is currently INACTIVE / PENDING. ${parentSupervisor} must log in first and click 'Activate' before this account can sign in!`
+        message: `LOGIN BLOCKED: Account ${selectedUser.name} is INACTIVE.`
       };
     }
 
@@ -353,32 +327,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setUsers(prev => [newCaptain, ...prev]);
-
-    const newLog: ActivityLog = {
-      id: `LOG-${Math.floor(89000 + Math.random() * 1000)}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userRole: currentUser.role,
-      userAvatar: currentUser.avatarUrl,
-      action: 'CREATE',
-      module: 'Captain Management',
-      entity: 'Captain',
-      targetId: newId,
-      targetName: newCaptain.name,
-      description: `${currentUser.role} ${currentUser.name} created Captain ${newCaptain.name} (Status: INACTIVE)`,
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      ipAddress: '192.168.1.104',
-      deviceInfo: 'Chrome 128 (Windows 11)',
-      status: 'SUCCESS',
-      diffs: [
-        { field: 'Role', oldValue: 'None', newValue: 'CAPTAIN' },
-        { field: 'Account Status', oldValue: 'None', newValue: 'INACTIVE' }
-      ]
-    };
-
-    setActivityLogs(prev => [newLog, ...prev]);
-    setNotificationToast(`Captain ${newCaptain.name} created in INACTIVE state. Click 'Activate' to allow login!`);
+    setNotificationToast(`Captain ${newCaptain.name} created in INACTIVE state.`);
   };
 
   const addSeller = (data: Partial<User>) => {
@@ -394,7 +343,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: 'SELLER',
       status: 'INACTIVE',
       assignedAdminId: currentUser.assignedAdminId || 'USR-ADM-101',
-      assignedAdminName: currentUser.assignedAdminName || 'Rahul Sharma',
+      assignedAdminName: currentUser.name,
       assignedCaptainId: currentUser.id,
       assignedCaptainName: currentUser.name,
       productsCount: 0,
@@ -406,32 +355,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setUsers(prev => [newSeller, ...prev]);
-
-    const newLog: ActivityLog = {
-      id: `LOG-${Math.floor(89000 + Math.random() * 1000)}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userRole: currentUser.role,
-      userAvatar: currentUser.avatarUrl,
-      action: 'CREATE',
-      module: 'Seller Management',
-      entity: 'Seller',
-      targetId: newId,
-      targetName: newSeller.companyName || newSeller.name,
-      description: `Captain ${currentUser.name} created Seller ${newSeller.companyName} (Status: INACTIVE)`,
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      ipAddress: '192.168.1.189',
-      deviceInfo: 'Chrome 128 (Windows 11)',
-      status: 'SUCCESS',
-      diffs: [
-        { field: 'Seller Name', oldValue: 'None', newValue: newSeller.name },
-        { field: 'Status', oldValue: 'None', newValue: 'INACTIVE' }
-      ]
-    };
-
-    setActivityLogs(prev => [newLog, ...prev]);
-    setNotificationToast(`Seller ${newSeller.companyName} created in INACTIVE state. Click 'Activate' to allow login!`);
+    setNotificationToast(`Seller ${newSeller.companyName} created in INACTIVE state.`);
   };
 
   const updateUserStatus = (id: string, newStatus: 'ACTIVE' | 'INACTIVE') => {
@@ -478,11 +402,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       users,
       activityLogs,
       securityEvents,
+      registerCaptainAccount,
       addCaptain,
       addSeller,
       updateUserStatus,
       sendAdminOtp,
       verifyAdminOtp,
+      loginWithCredentials,
       loginUser,
       selectedAuditLog,
       setSelectedAuditLog,

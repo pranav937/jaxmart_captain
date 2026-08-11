@@ -102,7 +102,7 @@ const MainContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-jaxmart-bg flex flex-col font-sans">
-      
+
       {/* Sticky Demo Role Switcher */}
       <RoleSwitcherBanner />
 
@@ -122,7 +122,7 @@ const MainContent: React.FC = () => {
 
       {/* Main Workspace Body */}
       <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
-        
+
         {/* Desktop Sidebar Navigation */}
         <Sidebar activeTab={activeTabNav} setActiveTab={setActiveTabNav} />
 

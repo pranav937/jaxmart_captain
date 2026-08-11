@@ -39,7 +39,7 @@ export const UserManagementTable: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-jaxmart-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
@@ -56,18 +56,17 @@ export const UserManagementTable: React.FC = () => {
       {/* Tabs & Search */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-jaxmart-sm space-y-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          
+
           {/* Tabs */}
           <div className="flex items-center space-x-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
             {['ALL', 'SUPER_ADMIN', 'ADMIN', 'CAPTAIN', 'SELLER', 'ACTIVE', 'INACTIVE'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                  activeTab === tab
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${activeTab === tab
                     ? 'bg-jaxmart-primary text-white shadow-sm'
                     : 'bg-jaxmart-bg text-jaxmart-navy hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 {tab.replace('_', ' ')}
               </button>
@@ -107,7 +106,7 @@ export const UserManagementTable: React.FC = () => {
             <tbody className="divide-y divide-gray-200">
               {filteredUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-jaxmart-bg/50 transition-colors">
-                  
+
                   {/* User Identity */}
                   <td className="p-3.5">
                     <div className="flex items-center space-x-3">
@@ -154,11 +153,10 @@ export const UserManagementTable: React.FC = () => {
 
                   {/* Status */}
                   <td className="p-3.5">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      user.status === 'ACTIVE'
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${user.status === 'ACTIVE'
                         ? 'bg-emerald-100 text-emerald-800'
                         : 'bg-red-100 text-jaxmart-error'
-                    }`}>
+                      }`}>
                       {user.status}
                     </span>
                   </td>
