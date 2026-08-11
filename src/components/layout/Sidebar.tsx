@@ -92,19 +92,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                isActive
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive
                   ? 'bg-jaxmart-primary text-white shadow-jaxmart-sm'
                   : highlight
-                  ? 'bg-jaxmart-teal/10 text-jaxmart-teal hover:bg-jaxmart-teal/20 font-semibold'
-                  : 'text-jaxmart-navy hover:bg-jaxmart-bg hover:text-jaxmart-primary'
-              }`}
+                    ? 'bg-jaxmart-teal/10 text-jaxmart-teal hover:bg-jaxmart-teal/20 font-semibold'
+                    : 'text-jaxmart-navy hover:bg-jaxmart-bg hover:text-jaxmart-primary'
+                }`}
             >
               <div className="flex items-center space-x-3">
                 <Icon className={`w-4 h-4 ${isActive ? 'text-white' : highlight ? 'text-jaxmart-teal' : 'text-jaxmart-mediumBlue'}`} />
                 <span className="truncate">{label}</span>
               </div>
-              
+
               <div className="flex items-center space-x-1">
                 {badge && (
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isActive ? 'bg-white text-jaxmart-primary' : 'bg-jaxmart-teal text-white'}`}>

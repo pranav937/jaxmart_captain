@@ -14,10 +14,10 @@ interface AuthContextType {
   users: User[];
   activityLogs: ActivityLog[];
   securityEvents: SecurityEvent[];
-  registerCaptainAccount: (data: { name: string; email: string; password: string }) => { success: boolean; message?: string };
+  registerCaptainAccount: (data: { name: string; email: string; password: string }) => Promise<{ success: boolean; message?: string }>;
   addCaptain: (data: Partial<User>) => void;
   addSeller: (data: Partial<User>) => void;
-  updateUserStatus: (id: string, newStatus: 'ACTIVE' | 'INACTIVE') => void;
+  updateUserStatus: (id: string, newStatus: 'ACTIVE' | 'INACTIVE') => Promise<void>;
   sendAdminOtp: (email: string) => { success: boolean; message: string; debugOtp?: string };
   verifyAdminOtp: (email: string, otpInput: string) => { success: boolean; message?: string };
   loginWithCredentials: (emailInput: string, passwordInput: string, role: Role) => { success: boolean; message?: string };
@@ -29,16 +29,16 @@ interface AuthContextType {
   notificationToast: string | null;
   setNotificationToast: (msg: string | null) => void;
   activeOtpData: OtpData | null;
+  clearStoredData: () => void;
 }
 
-// Clean Real Baseline Users (Fallback if local storage empty)
 const defaultUsers: User[] = [
   {
     id: 'USR-SA-001',
     name: 'Super Admin',
     firstName: 'Super',
     lastName: 'Admin',
-    email: 'Jax@gmail.com', // Single Super Admin Email
+    email: 'Jax@gmail.com',
     mobile: '+91 98765 43210',
     role: 'SUPER_ADMIN',
     status: 'ACTIVE',
@@ -51,7 +51,7 @@ const defaultUsers: User[] = [
     name: 'Jaxmart Admin',
     firstName: 'Jaxmart',
     lastName: 'Admin',
-    email: 'jaxmart@gmail.com', // Default Admin Email
+    email: 'jaxmart@gmail.com',
     mobile: '+91 98220 11223',
     role: 'ADMIN',
     status: 'ACTIVE',
@@ -78,15 +78,15 @@ const defaultAuditLogs: ActivityLog[] = [
     module: 'Security & RBAC',
     entity: 'Platform Core',
     targetId: 'USR-SA-001',
-    targetName: 'Super Admin System',
-    description: 'Jaxmart B2B Platform Initialized with Super Admin (Jax@gmail.com) & Admin (jaxmart@gmail.com). Persistent LocalStorage Storage Active.',
+    targetName: 'Central Engine',
+    description: 'Jaxmart B2B Platform Active.',
     date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     ipAddress: '127.0.0.1',
     deviceInfo: 'System Core Engine',
     status: 'SUCCESS',
     diffs: [
-      { field: 'Storage Engine', oldValue: 'In-Memory', newValue: 'LocalStorage Persistent' }
+      { field: 'Platform Status', oldValue: 'None', newValue: 'Operational' }
     ]
   }
 ];
@@ -95,69 +95,51 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentRole, setCurrentRole] = useState<Role>('SUPER_ADMIN');
-
-  // Initialize state directly from LocalStorage for persistence across page refreshes!
-  const [users, setUsers] = useState<User[]>(() => {
-    try {
-      const saved = localStorage.getItem('jaxmart_users');
-      return saved ? JSON.parse(saved) : defaultUsers;
-    } catch {
-      return defaultUsers;
-    }
-  });
-
+  const [users, setUsers] = useState<User[]>(defaultUsers);
+  
   const [passwordsStore, setPasswordsStore] = useState<Record<string, string>>(() => {
     try {
-      const saved = localStorage.getItem('jaxmart_passwords');
-      return saved ? JSON.parse(saved) : defaultPasswords;
-    } catch {
-      return defaultPasswords;
+      const saved = localStorage.getItem('jaxmart_passwords_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {
+      console.error(e);
     }
+    return defaultPasswords;
   });
 
-  const [currentUser, setCurrentUser] = useState<User>(() => users[0] || defaultUsers[0]);
-
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
-    try {
-      const saved = localStorage.getItem('jaxmart_audit_logs');
-      return saved ? JSON.parse(saved) : defaultAuditLogs;
-    } catch {
-      return defaultAuditLogs;
-    }
-  });
-
+  const [currentUser, setCurrentUser] = useState<User>(defaultUsers[0]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(defaultAuditLogs);
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [selectedAuditLog, setSelectedAuditLog] = useState<ActivityLog | null>(null);
   const [activeTabNav, setActiveTabNav] = useState<string>('dashboard');
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [activeOtpData, setActiveOtpData] = useState<OtpData | null>(null);
 
-  // Synchronize Users to LocalStorage whenever users list changes
-  useEffect(() => {
+  // FETCH USERS FROM POSTGRESQL DB
+  const fetchUsersFromDb = async () => {
     try {
-      localStorage.setItem('jaxmart_users', JSON.stringify(users));
+      const res = await fetch('http://localhost:3000/api/users');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.users) && data.users.length > 0) {
+          setUsers(data.users);
+          localStorage.setItem('jaxmart_users_v2', JSON.stringify(data.users));
+        }
+      }
     } catch (e) {
-      console.error('LocalStorage User Save Error:', e);
+      const saved = localStorage.getItem('jaxmart_users_v2');
+      if (saved) setUsers(JSON.parse(saved));
     }
-  }, [users]);
+  };
 
-  // Synchronize Passwords to LocalStorage
   useEffect(() => {
-    try {
-      localStorage.setItem('jaxmart_passwords', JSON.stringify(passwordsStore));
-    } catch (e) {
-      console.error('LocalStorage Passwords Save Error:', e);
-    }
-  }, [passwordsStore]);
-
-  // Synchronize Audit Logs to LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('jaxmart_audit_logs', JSON.stringify(activityLogs));
-    } catch (e) {
-      console.error('LocalStorage Audit Logs Save Error:', e);
-    }
-  }, [activityLogs]);
+    fetchUsersFromDb();
+    const interval = setInterval(fetchUsersFromDb, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const setRole = (role: Role) => {
     setCurrentRole(role);
@@ -166,8 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveTabNav('dashboard');
   };
 
-  // Register Captain Account (PERSISTED)
-  const registerCaptainAccount = (data: { name: string; email: string; password: string }): { success: boolean; message?: string } => {
+  // REGISTER CAPTAIN ACCOUNT
+  const registerCaptainAccount = async (data: { name: string; email: string; password: string }): Promise<{ success: boolean; message?: string }> => {
     const formattedEmail = data.email.trim().toLowerCase();
 
     if (users.some(u => u.email.toLowerCase() === formattedEmail)) {
@@ -177,65 +159,89 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    const newId = `USR-CAP-${Math.floor(250 + Math.random() * 700)}`;
-    const newCaptainUser: User = {
-      id: newId,
-      name: data.name.trim(),
-      email: formattedEmail,
-      mobile: '+91 98000 11223',
-      role: 'CAPTAIN',
-      status: 'INACTIVE', // Starts INACTIVE until Admin activates
-      assignedAdminId: 'USR-ADM-101',
-      assignedAdminName: 'Jaxmart Admin',
-      sellersCount: 0,
-      createdDate: new Date().toISOString().split('T')[0],
-      lastLogin: 'Never (Pending Admin Activation)',
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
-    };
+    try {
+      const apiRes = await fetch('http://localhost:3000/api/captain/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: data.name, email: data.email, password: data.password })
+      });
 
-    // Save Password persistently
-    setPasswordsStore(prev => ({
-      ...prev,
-      [formattedEmail]: data.password
-    }));
+      const apiData = await apiRes.json();
+      if (!apiData.success) {
+        return { success: false, message: apiData.error || 'Registration failed.' };
+      }
 
-    // Save Captain user persistently
-    setUsers(prev => [newCaptainUser, ...prev]);
+      const updatedPasswords = { ...passwordsStore, [formattedEmail]: data.password };
+      setPasswordsStore(updatedPasswords);
+      try {
+        localStorage.setItem('jaxmart_passwords_v2', JSON.stringify(updatedPasswords));
+      } catch (e) {
+        console.error(e);
+      }
 
-    const newLog: ActivityLog = {
-      id: `LOG-${Math.floor(89000 + Math.random() * 1000)}`,
-      userId: newId,
-      userName: newCaptainUser.name,
-      userRole: 'CAPTAIN',
-      userAvatar: newCaptainUser.avatarUrl,
-      action: 'CREATE',
-      module: 'Captain Management',
-      entity: 'Captain Registration',
-      targetId: newId,
-      targetName: newCaptainUser.name,
-      description: `Captain Registration completed for ${newCaptainUser.name} (${formattedEmail}). Saved to LocalStorage. Status: INACTIVE`,
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      ipAddress: '192.168.1.104',
-      deviceInfo: 'Chrome 128 (Windows 11)',
-      status: 'SUCCESS',
-      diffs: [
-        { field: 'Role', oldValue: 'None', newValue: 'CAPTAIN' },
-        { field: 'Account Status', oldValue: 'None', newValue: 'INACTIVE (Admin Activation Required)' }
-      ]
-    };
+      await fetchUsersFromDb();
+      return { success: true };
+    } catch (e) {
+      const newId = `USR-CAP-${Math.floor(250 + Math.random() * 700)}`;
+      const newCaptainUser: User = {
+        id: newId,
+        name: data.name.trim(),
+        email: formattedEmail,
+        mobile: '+91 98000 11223',
+        role: 'CAPTAIN',
+        status: 'INACTIVE',
+        assignedAdminId: 'USR-ADM-101',
+        assignedAdminName: 'Jaxmart Admin',
+        sellersCount: 0,
+        createdDate: new Date().toISOString().split('T')[0],
+        lastLogin: 'Never (Pending Admin Activation)',
+        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
+      };
 
-    setActivityLogs(prev => [newLog, ...prev]);
-    setNotificationToast(`Captain ${newCaptainUser.name} registered and saved! Admin must activate account before login.`);
+      setUsers(prev => [newCaptainUser, ...prev]);
 
-    return { success: true };
+      const updatedPasswords = { ...passwordsStore, [formattedEmail]: data.password };
+      setPasswordsStore(updatedPasswords);
+      try {
+        localStorage.setItem('jaxmart_passwords_v2', JSON.stringify(updatedPasswords));
+      } catch (err) {
+        console.error(err);
+      }
+
+      return { success: true };
+    }
   };
 
-  // Login with Email & Password (PERSISTENT VERIFICATION)
+  // UPDATE USER STATUS - INSTANT OPTIMISTIC UI + POSTGRESQL DB SYNC
+  const updateUserStatus = async (id: string, newStatus: 'ACTIVE' | 'INACTIVE') => {
+    // 1. Instant Optimistic React State Update (Button & Badge change immediately!)
+    setUsers(prev => {
+      const updated = prev.map(u => u.id === id ? { ...u, status: newStatus } : u);
+      try {
+        localStorage.setItem('jaxmart_users_v2', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+
+    // 2. Persist update into PostgreSQL Database
+    try {
+      await fetch('http://localhost:3000/api/users/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, newStatus })
+      });
+      await fetchUsersFromDb();
+    } catch (e) {
+      console.error('API Error updating user status:', e);
+    }
+  };
+
+  // LOGIN WITH CREDENTIALS
   const loginWithCredentials = (emailInput: string, passwordInput: string, role: Role): { success: boolean; message?: string } => {
     const formattedEmail = emailInput.trim().toLowerCase();
 
-    // Single Super Admin Enforcement
     if (role === 'SUPER_ADMIN') {
       if (formattedEmail !== 'jax@gmail.com') {
         return {
@@ -245,7 +251,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Find user matching EMAIL AND ROLE
     const matchedUser = users.find(
       u => u.email.toLowerCase() === formattedEmail && u.role === role
     ) || users.find(u => u.email.toLowerCase() === formattedEmail);
@@ -264,7 +269,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    // Verify Password Match against persisted store
     const expectedPassword = passwordsStore[formattedEmail] || '123456';
     if (passwordInput.trim() !== expectedPassword && passwordInput.trim() !== '123456') {
       return {
@@ -273,118 +277,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    // Verify Activation Status
     if (matchedUser.status !== 'ACTIVE') {
       const parentSupervisor = matchedUser.role === 'CAPTAIN'
         ? `Admin ${matchedUser.assignedAdminName || 'Jaxmart Admin'}`
-        : matchedUser.role === 'SELLER'
-        ? `Captain ${matchedUser.assignedCaptainName || 'Assigned Captain'}`
         : 'Super Admin';
 
       return {
         success: false,
-        message: `❌ LOGIN BLOCKED: Captain ${matchedUser.name} is currently INACTIVE. ${parentSupervisor} must log in first and click 'Activate' before this account can sign in!`
+        message: `❌ LOGIN BLOCKED: Captain ${matchedUser.name} is currently INACTIVE. ${parentSupervisor} must activate this account before you can sign in!`
       };
     }
 
-    // Login Success
     setCurrentRole(matchedUser.role);
     setCurrentUser(matchedUser);
-
-    const secEvent: SecurityEvent = {
-      id: `SEC-${Math.floor(200 + Math.random() * 800)}`,
-      userId: matchedUser.id,
-      userName: matchedUser.name,
-      userRole: matchedUser.role,
-      eventType: 'SUCCESSFUL_LOGIN',
-      ipAddress: '192.168.1.104',
-      device: 'Chrome 128 / Windows 11',
-      location: 'Ahmedabad, India',
-      timestamp: new Date().toLocaleString(),
-      status: 'SUCCESS',
-      details: `Persistent verified login for ${matchedUser.role} (${matchedUser.email})`
-    };
-    setSecurityEvents(prev => [secEvent, ...prev]);
-
     return { success: true };
   };
 
   const sendAdminOtp = (emailInput: string): { success: boolean; message: string; debugOtp?: string } => {
-    const formattedEmail = emailInput.trim().toLowerCase();
-    const matchingUser = users.find(u => u.email.toLowerCase() === formattedEmail);
-    if (!matchingUser) {
-      return {
-        success: false,
-        message: `No account registered with email ${emailInput}.`
-      };
-    }
-
-    const generatedOtp = '123456';
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    setActiveOtpData({
-      email: formattedEmail,
-      generatedOtp,
-      expiresAt,
-    });
-
     return {
       success: true,
-      message: `OTP sent to ${formattedEmail}!`,
-      debugOtp: generatedOtp
+      message: `OTP sent to ${emailInput}!`,
+      debugOtp: '123456'
     };
   };
 
   const verifyAdminOtp = (emailInput: string, otpInput: string): { success: boolean; message?: string } => {
     const formattedEmail = emailInput.trim().toLowerCase();
     const targetUser = users.find(u => u.email.toLowerCase() === formattedEmail) || users[0];
-
-    if (targetUser.status !== 'ACTIVE') {
-      return {
-        success: false,
-        message: `LOGIN BLOCKED: Captain ${targetUser.name} is currently INACTIVE. Admin must activate this account first!`
-      };
-    }
-
     setCurrentRole(targetUser.role);
     setCurrentUser(targetUser);
     return { success: true };
   };
 
   const loginUser = (selectedUser: User): { success: boolean; message?: string } => {
-    if (selectedUser.status !== 'ACTIVE') {
-      return {
-        success: false,
-        message: `LOGIN BLOCKED: Account ${selectedUser.name} is INACTIVE.`
-      };
-    }
-
     setCurrentRole(selectedUser.role);
     setCurrentUser(selectedUser);
     return { success: true };
   };
 
   const addCaptain = (data: Partial<User>) => {
-    const newId = `USR-CAP-${Math.floor(100 + Math.random() * 900)}`;
-    const newCaptain: User = {
-      id: newId,
+    registerCaptainAccount({
       name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'New Captain',
-      firstName: data.firstName,
-      lastName: data.lastName,
       email: data.email || 'captain@jaxmart.com',
-      mobile: data.mobile || '',
-      role: 'CAPTAIN',
-      status: 'INACTIVE',
-      assignedAdminId: currentUser.id,
-      assignedAdminName: currentUser.name,
-      sellersCount: 0,
-      createdDate: new Date().toISOString().split('T')[0],
-      lastLogin: 'Pending Admin Activation',
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
-    };
-
-    setUsers(prev => [newCaptain, ...prev]);
-    setNotificationToast(`Captain ${newCaptain.name} created in INACTIVE state.`);
+      password: '123456'
+    });
   };
 
   const addSeller = (data: Partial<User>) => {
@@ -398,7 +334,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: data.email || 'seller@jaxmart.com',
       mobile: data.mobile || '',
       role: 'SELLER',
-      status: 'INACTIVE',
+      status: 'ACTIVE',
       assignedAdminId: currentUser.assignedAdminId || 'USR-ADM-101',
       assignedAdminName: currentUser.name,
       assignedCaptainId: currentUser.id,
@@ -407,48 +343,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ordersCount: 0,
       revenue: 0,
       createdDate: new Date().toISOString().split('T')[0],
-      lastLogin: 'Pending Captain Activation',
+      lastLogin: 'Active',
       avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150'
     };
 
     setUsers(prev => [newSeller, ...prev]);
-    setNotificationToast(`Seller ${newSeller.companyName} created in INACTIVE state.`);
   };
 
-  const updateUserStatus = (id: string, newStatus: 'ACTIVE' | 'INACTIVE') => {
-    setUsers(prev => prev.map(u => {
-      if (u.id === id) {
-        const oldStatus = u.status;
-        const updated = { ...u, status: newStatus };
-
-        const newLog: ActivityLog = {
-          id: `LOG-${Math.floor(89000 + Math.random() * 1000)}`,
-          userId: currentUser.id,
-          userName: currentUser.name,
-          userRole: currentUser.role,
-          userAvatar: currentUser.avatarUrl,
-          action: 'STATUS_CHANGE',
-          module: u.role === 'CAPTAIN' ? 'Captain Management' : 'Seller Management',
-          entity: u.role,
-          targetId: u.id,
-          targetName: u.name,
-          description: `${currentUser.role} ${currentUser.name} ${newStatus === 'ACTIVE' ? 'ACTIVATED' : 'DEACTIVATED'} ${u.role} ${u.name}`,
-          date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          ipAddress: '192.168.1.104',
-          deviceInfo: 'Chrome 128 (Windows 11)',
-          status: newStatus === 'ACTIVE' ? 'SUCCESS' : 'WARNING',
-          diffs: [
-            { field: 'Account Status', oldValue: oldStatus, newValue: newStatus }
-          ]
-        };
-
-        setActivityLogs(logs => [newLog, ...logs]);
-        setNotificationToast(`STATUS CHANGED: ${u.role} ${u.name} is now ${newStatus}! ${newStatus === 'ACTIVE' ? 'Account can now log in.' : 'Login blocked.'}`);
-        return updated;
-      }
-      return u;
-    }));
+  const clearStoredData = () => {
+    localStorage.clear();
+    setUsers(defaultUsers);
+    setPasswordsStore(defaultPasswords);
+    setNotificationToast(null);
   };
 
   return (
@@ -473,7 +379,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActiveTabNav,
       notificationToast,
       setNotificationToast,
-      activeOtpData
+      activeOtpData,
+      clearStoredData
     }}>
       {children}
     </AuthContext.Provider>

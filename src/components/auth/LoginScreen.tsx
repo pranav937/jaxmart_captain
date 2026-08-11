@@ -11,11 +11,11 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForgotPasswordClick }) => {
   const { users, loginWithCredentials } = useAuth();
   const [selectedRole, setSelectedRole] = useState<Role>('SUPER_ADMIN');
-  
+
   // Email & Password Fields (Default Super Admin: Jax@gmail.com / 123456)
   const [emailInput, setEmailInput] = useState('Jax@gmail.com');
   const [passwordInput, setPasswordInput] = useState('123456');
-  
+
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -58,7 +58,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
 
   return (
     <div className="min-h-screen bg-jaxmart-bg flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
-      
+
       {/* Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <div className="flex justify-center items-center space-x-3">
@@ -79,7 +79,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-lg px-4">
         <div className="bg-white py-8 px-6 shadow-jaxmart-lg rounded-xl border border-gray-200 sm:px-10 space-y-5">
-          
+
           {/* Step 1: Role Selector */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-jaxmart-mediumBlue mb-2">
@@ -91,11 +91,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
                   type="button"
                   key={r}
                   onClick={() => handleRoleChange(r)}
-                  className={`py-2 px-1 text-[11px] font-bold rounded text-center transition-all ${
-                    selectedRole === r
-                      ? 'bg-jaxmart-primary text-white shadow-sm'
-                      : 'text-jaxmart-navy hover:bg-gray-200'
-                  }`}
+                  className={`py-2 px-1 text-[11px] font-bold rounded text-center transition-all ${selectedRole === r
+                    ? 'bg-jaxmart-primary text-white shadow-sm'
+                    : 'text-jaxmart-navy hover:bg-gray-200'
+                    }`}
                 >
                   {r.replace('_', ' ')}
                 </button>
@@ -117,13 +116,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
                   <div
                     key={u.id}
                     onClick={() => handleUserSelect(u)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center justify-between ${
-                      isSelected
-                        ? isActive
-                          ? 'border-jaxmart-teal bg-teal-50/50 ring-2 ring-jaxmart-teal/20 font-bold'
-                          : 'border-jaxmart-error bg-red-50/50 ring-2 ring-jaxmart-error/20 font-bold'
-                        : 'border-gray-200 bg-jaxmart-bg hover:border-gray-300'
-                    }`}
+                    className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center justify-between ${isSelected
+                      ? isActive
+                        ? 'border-jaxmart-teal bg-teal-50/50 ring-2 ring-jaxmart-teal/20 font-bold'
+                        : 'border-jaxmart-error bg-red-50/50 ring-2 ring-jaxmart-error/20 font-bold'
+                      : 'border-gray-200 bg-jaxmart-bg hover:border-gray-300'
+                      }`}
                   >
                     <div className="flex items-center space-x-3">
                       <img src={u.avatarUrl} alt="" className="w-8 h-8 rounded-full border" />
@@ -135,9 +133,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
                       </div>
                     </div>
 
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-jaxmart-error'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-jaxmart-error'
+                      }`}>
                       {isActive ? 'ACTIVE' : 'INACTIVE'}
                     </span>
                   </div>
@@ -159,7 +156,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
 
           {/* FORM: Registered Email & Password */}
           <form onSubmit={handleSubmit} className="space-y-4 pt-2 border-t border-gray-100">
-            
+
             {/* Field 1: Email */}
             <div>
               <label className="block text-xs font-bold text-jaxmart-navy mb-1">

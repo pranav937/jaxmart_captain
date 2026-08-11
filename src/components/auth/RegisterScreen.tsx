@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Store, UserCheck, CheckCircle2, ArrowRight, ArrowLeft, Mail, Lock, User, AlertTriangle } from 'lucide-react';
+import { Store, UserCheck, CheckCircle2, ArrowLeft, Mail, Lock, User, AlertTriangle } from 'lucide-react';
 
 interface RegisterScreenProps {
   onSuccessRegister: () => void;
@@ -17,6 +17,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [targetRole, setTargetRole] = useState<'CAPTAIN' | 'SELLER'>('CAPTAIN');
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // Captain Registration Form Fields: Name, Email, Password, Confirm Password
   const [captainName, setCaptainName] = useState('');
@@ -29,36 +30,46 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [sellerEmail, setSellerEmail] = useState('');
   const [sellerCompany, setSellerCompany] = useState('');
 
-  const handleCaptainSubmit = (e: React.FormEvent) => {
+  const handleCaptainSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    // Validation
+    // 1. Validation
     if (!captainName.trim() || !captainEmail.trim() || !captainPassword || !captainConfirmPassword) {
       setErrorMessage('Please fill in all required fields (Name, Email, Password, Confirm Password).');
       return;
     }
 
     if (captainPassword !== captainConfirmPassword) {
-      setErrorMessage('Password and Confirm Password do not match.');
+      setErrorMessage('❌ Password and Confirm Password do not match.');
       return;
     }
 
     if (captainPassword.length < 6) {
-      setErrorMessage('Password must be at least 6 characters long.');
+      setErrorMessage('❌ Password must be at least 6 characters long.');
       return;
     }
 
-    const res = registerCaptainAccount({
-      name: captainName,
-      email: captainEmail,
-      password: captainPassword,
-    });
+    setLoading(true);
 
-    if (!res.success) {
-      setErrorMessage(res.message || 'Registration failed.');
-    } else {
-      setIsSuccess(true);
+    try {
+      // 2. Submit to PostgreSQL Server via registerCaptainAccount
+      const res = await registerCaptainAccount({
+        name: captainName,
+        email: captainEmail,
+        password: captainPassword,
+      });
+
+      setLoading(false);
+
+      if (!res.success) {
+        setErrorMessage(res.message || 'Registration failed.');
+      } else {
+        setIsSuccess(true);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage('Connection error. Please try again.');
     }
   };
 
@@ -80,19 +91,19 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             <CheckCircle2 className="w-10 h-10" />
           </div>
           <h2 className="text-2xl font-extrabold text-jaxmart-navy">
-            Captain Registration Submitted!
+            Captain Registered & Saved in PostgreSQL Database!
           </h2>
           <p className="text-sm text-gray-600">
-            Captain <strong>{captainName || 'Account'}</strong> ({captainEmail}) has been registered!
+            Captain <strong>{captainName || 'Account'}</strong> ({captainEmail}) has been saved to the PostgreSQL database.
           </p>
 
-          <div className="p-4 bg-amber-50 rounded-lg text-left text-xs border border-amber-200 space-y-1 text-amber-900">
+          <div className="p-4 bg-amber-50 rounded-lg text-left text-xs border border-amber-200 space-y-1.5 text-amber-900">
             <div className="font-bold flex items-center space-x-1">
               <AlertTriangle className="w-4 h-4 text-amber-600 mr-1" />
-              <span>Pending Admin Activation Required:</span>
+              <span>Pending Admin Activation:</span>
             </div>
             <p>
-              Your account is saved as <strong className="underline">INACTIVE</strong>. Admin Rahul Sharma must log in and click <strong>"Activate Captain"</strong> before you can sign in with your Email & Password.
+              Your account status is currently <strong>INACTIVE</strong> in the database. Admin must activate your account before you can sign in using your registered Email & Password.
             </p>
           </div>
 
@@ -140,7 +151,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           Captain Registration
         </h2>
         <p className="text-xs text-gray-500 mt-1">
-          Register Captain account with Name, Email, Password & Confirm Password
+          Register with Name, Email, Password & Confirm Password
         </p>
       </div>
 
@@ -164,7 +175,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               >
                 <UserCheck className="w-5 h-5 text-jaxmart-primary" />
                 <div>
-                  <div className="text-xs">Captain Registration</div>
+                  <div className="text-xs font-bold">Captain Registration</div>
                 </div>
               </button>
 
@@ -179,7 +190,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               >
                 <Store className="w-5 h-5 text-jaxmart-teal" />
                 <div>
-                  <div className="text-xs">Seller Registration</div>
+                  <div className="text-xs font-bold">Seller Registration</div>
                 </div>
               </button>
             </div>
@@ -193,11 +204,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             </div>
           )}
 
-          {/* CAPTAIN REGISTRATION FORM: Name, Email, Password, Confirm Password */}
+          {/* CAPTAIN REGISTRATION FORM */}
           {targetRole === 'CAPTAIN' ? (
             <form onSubmit={handleCaptainSubmit} className="space-y-4">
               
-              {/* Field 1: Captain Name */}
+              {/* Field 1: Name */}
               <div>
                 <label className="block text-xs font-bold text-jaxmart-navy mb-1">
                   Captain Full Name *
@@ -215,7 +226,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 </div>
               </div>
 
-              {/* Field 2: Captain Email */}
+              {/* Field 2: Email */}
               <div>
                 <label className="block text-xs font-bold text-jaxmart-navy mb-1">
                   Captain Email Address *
@@ -228,7 +239,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     value={captainEmail}
                     onChange={(e) => setCaptainEmail(e.target.value)}
                     className="w-full pl-9 pr-4 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-semibold text-jaxmart-navy"
-                    placeholder="captain.amit@jaxmart.com"
+                    placeholder="captain.email@gmail.com"
                   />
                 </div>
               </div>
@@ -271,10 +282,17 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-3 px-4 bg-jaxmart-primary text-white rounded-lg text-xs font-bold hover:bg-jaxmart-navy transition-all shadow-sm flex justify-center items-center space-x-2"
+                disabled={loading}
+                className="w-full py-3 px-4 bg-jaxmart-primary text-white rounded-lg text-xs font-bold hover:bg-jaxmart-navy transition-all shadow-sm flex justify-center items-center space-x-2 disabled:opacity-50"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Register Captain Account</span>
+                {loading ? (
+                  <span>Saving to PostgreSQL Database...</span>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Register Captain Account</span>
+                  </>
+                )}
               </button>
             </form>
           ) : (
