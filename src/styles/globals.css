@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #F6F8FB;
+    color: #121358;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Custom Scrollbar for Jaxmart Panel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F0F4F8;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #7B8C9F;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2F578A;
+}
+
+/* Glass & Card Effects */
+.jaxmart-card-hover {
+  transition: all 0.2s ease-in-out;
+}
+
+.jaxmart-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(18, 19, 88, 0.08);
+}
