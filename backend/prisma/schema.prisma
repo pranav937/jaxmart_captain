@@ -1,0 +1,120 @@
+// Jaxmart B2B E-Commerce Platform - Prisma Schema Definition
+// Technology: NestJS + PostgreSQL + Prisma ORM
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CAPTAIN
+  SELLER
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ActionType {
+  CREATE
+  UPDATE
+  DELETE
+  ACTIVATE
+  DEACTIVATE
+  STATUS_CHANGE
+  LOGIN
+  LOGOUT
+}
+
+model User {
+  id               String        @id @default(uuid())
+  email            String        @unique
+  mobile           String
+  passwordHash     String
+  firstName        String
+  lastName         String
+  role             Role
+  status           AccountStatus @default(ACTIVE)
+  avatarUrl        String?
+  
+  // Hierarchy Relationships:
+  // Admin supervision over Captains
+  supervisedCaptains CaptainProfile[] @relation("AdminToCaptain")
+  
+  // Captain supervision over Sellers
+  supervisedSellers  SellerProfile[]  @relation("CaptainToSeller")
+  
+  // Activity Audit Records
+  executedActivities ActivityLog[]    @relation("UserActivity")
+  securityLogs       SecurityEvent[]  @relation("UserSecurity")
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model CaptainProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  assignedAdminId String
+  assignedAdmin   User     @relation("AdminToCaptain", fields: [assignedAdminId], references: [id])
+  
+  managedSellers  SellerProfile[]
+
+  createdAt       DateTime @default(now())
+}
+
+model SellerProfile {
+  id                String         @id @default(uuid())
+  userId            String         @unique
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName       String
+  gstin             String?
+  
+  assignedCaptainId String
+  assignedCaptain   CaptainProfile @relation(fields: [assignedCaptainId], references: [id])
+
+  createdAt         DateTime       @default(now())
+}
+
+model ActivityLog {
+  id           String     @id @default(uuid())
+  userId       String
+  user         User       @relation("UserActivity", fields: [userId], references: [id])
+  userRole     Role
+  action       ActionType
+  module       String
+  entity       String
+  targetId     String
+  description  String
+  ipAddress    String
+  deviceInfo   String
+  status       String     @default("SUCCESS")
+  diffPayload  Json?      // Stores Old Value vs New Value JSON Diffs
+  createdAt    DateTime   @default(now())
+
+  @@index([userId])
+  @@index([module])
+  @@index([createdAt])
+}
+
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation("UserSecurity", fields: [userId], references: [id])
+  eventType String
+  ipAddress String
+  device    String
+  status    String
+  details   String
+  createdAt DateTime @default(now())
+}
