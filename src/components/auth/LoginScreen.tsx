@@ -85,8 +85,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
             <label className="block text-xs font-bold uppercase tracking-wider text-jaxmart-mediumBlue mb-2">
               1. Select Role
             </label>
-            <div className="grid grid-cols-4 gap-1.5 bg-jaxmart-bg p-1 rounded-lg border border-gray-200">
-              {(['SUPER_ADMIN', 'ADMIN', 'CAPTAIN', 'SELLER'] as Role[]).map((r) => (
+            <div className="grid grid-cols-3 gap-1.5 bg-jaxmart-bg p-1 rounded-lg border border-gray-200">
+              {(['SUPER_ADMIN', 'ADMIN', 'CAPTAIN'] as Role[]).map((r) => (
                 <button
                   type="button"
                   key={r}

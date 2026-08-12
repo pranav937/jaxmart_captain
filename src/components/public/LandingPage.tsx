@@ -58,16 +58,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex items-center space-x-3">
             <button
               onClick={onNavigateLogin}
-              className="px-4 py-2 text-sm font-semibold text-jaxmart-primary hover:text-jaxmart-navy transition-colors"
-            >
-              Sign In
-            </button>
-
-            <button
-              onClick={onNavigateRegister}
               className="px-5 py-2 bg-jaxmart-teal text-white rounded-lg text-sm font-semibold hover:bg-teal-600 transition-colors shadow-sm"
             >
-              Register Partner
+              Sign In / Login
             </button>
           </div>
 
@@ -89,24 +82,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           {/* Main Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight max-w-4xl mx-auto">
-            Empowering B2B Commerce Across <br className="hidden sm:inline" />
+            Empowering Hierarchical Commerce Across <br className="hidden sm:inline" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-jaxmart-teal via-white to-blue-200">
-              Admins, Captains & Sellers
+              Super Admin, Admin & Captains
             </span>
           </h1>
 
           {/* Subtitle */}
           <p className="mt-6 text-lg sm:text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Jaxmart provides an end-to-end B2B management suite built with 4-level Role Based Access Control, real-time audit logs, regional captain supervision, and seller catalog fulfillment.
+            Jaxmart provides an end-to-end B2B management suite with strict Role Based Access Control: Super Admin creates Admins, Admin creates Captains.
           </p>
 
           {/* Action Callouts */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
             <button
-              onClick={onNavigateRegister}
+              onClick={onNavigateLogin}
               className="w-full sm:w-auto px-8 py-3.5 bg-jaxmart-teal text-white rounded-xl font-bold text-sm hover:bg-teal-500 shadow-jaxmart-lg transition-all flex items-center justify-center space-x-2 group"
             >
-              <span>Register Partner Account</span>
+              <span>Sign In to Platform</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
 

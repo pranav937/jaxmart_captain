@@ -21,7 +21,22 @@ import { PermissionMatrix } from './components/permissions/PermissionMatrix';
 import { UserManagementTable } from './components/users/UserManagementTable';
 import { SecurityLogTable } from './components/security/SecurityLogTable';
 
-type PageState = 'LANDING' | 'LOGIN' | 'REGISTER' | 'ADMIN_PANEL';
+import { SuperAdminUserManagement } from './components/admin/SuperAdminUserManagement';
+import { SuperAdminCatalogManagement } from './components/admin/SuperAdminCatalogManagement';
+import { SuperAdminRFQOrdersManagement } from './components/admin/SuperAdminRFQOrdersManagement';
+import { SuperAdminAnalyticsSettings } from './components/admin/SuperAdminAnalyticsSettings';
+
+import { AdminUserOperations } from './components/admin/AdminUserOperations';
+import { AdminCatalogOperations } from './components/admin/AdminCatalogOperations';
+import { AdminRFQOrdersOperations } from './components/admin/AdminRFQOrdersOperations';
+import { AdminNotificationBroadcaster } from './components/admin/AdminNotificationBroadcaster';
+
+import { CaptainSellerOperations } from './components/captain/CaptainSellerOperations';
+import { CaptainTasksFollowups } from './components/captain/CaptainTasksFollowups';
+import { CaptainRFQsOrdersPerformance } from './components/captain/CaptainRFQsOrdersPerformance';
+import { CaptainNotifications } from './components/captain/CaptainNotifications';
+
+type PageState = 'LANDING' | 'LOGIN' | 'ADMIN_PANEL';
 
 const MainContent: React.FC = () => {
   const { currentRole, selectedAuditLog, setSelectedAuditLog, activeTabNav, setActiveTabNav } = useAuth();
@@ -33,24 +48,13 @@ const MainContent: React.FC = () => {
     return (
       <LandingPage
         onNavigateLogin={() => setCurrentPage('LOGIN')}
-        onNavigateRegister={() => setCurrentPage('REGISTER')}
+        onNavigateRegister={() => setCurrentPage('LOGIN')}
         onExploreDemo={() => setCurrentPage('ADMIN_PANEL')}
       />
     );
   }
 
-  // 2. REGISTRATION PAGE
-  if (currentPage === 'REGISTER') {
-    return (
-      <RegisterScreen
-        onSuccessRegister={() => setCurrentPage('ADMIN_PANEL')}
-        onNavigateLogin={() => setCurrentPage('LOGIN')}
-        onNavigateLanding={() => setCurrentPage('LANDING')}
-      />
-    );
-  }
-
-  // 3. LOGIN PAGE
+  // 2. LOGIN PAGE
   if (currentPage === 'LOGIN') {
     return (
       <LoginScreen
@@ -60,7 +64,7 @@ const MainContent: React.FC = () => {
     );
   }
 
-  // 4. AUTHENTICATED ADMIN MANAGEMENT PANEL
+  // 3. AUTHENTICATED ADMIN MANAGEMENT PANEL
   const renderDashboardByRole = () => {
     switch (currentRole) {
       case 'SUPER_ADMIN':
@@ -69,8 +73,6 @@ const MainContent: React.FC = () => {
         return <AdminDashboard onNavigateTab={setActiveTabNav} />;
       case 'CAPTAIN':
         return <CaptainDashboard onNavigateTab={setActiveTabNav} />;
-      case 'SELLER':
-        return <SellerDashboard />;
       default:
         return <SuperAdminDashboard onNavigateTab={setActiveTabNav} />;
     }
@@ -80,17 +82,54 @@ const MainContent: React.FC = () => {
     switch (activeTabNav) {
       case 'dashboard':
         return renderDashboardByRole();
+      case 'users-mgmt':
+        return <SuperAdminUserManagement />;
+      case 'catalog':
+        return <SuperAdminCatalogManagement />;
+      case 'rfq-orders':
+        return <SuperAdminRFQOrdersManagement />;
+      case 'analytics-settings':
+        return <SuperAdminAnalyticsSettings />;
+
+      // Admin Scoped Routes (70-80% Access)
+      case 'admin-users':
+        return currentRole === 'ADMIN' ? <AdminUserOperations /> : <SuperAdminUserManagement />;
+      case 'admin-catalog':
+        return currentRole === 'ADMIN' ? <AdminCatalogOperations /> : <SuperAdminCatalogManagement />;
+      case 'admin-rfq-orders':
+        return currentRole === 'ADMIN' ? <AdminRFQOrdersOperations /> : <SuperAdminRFQOrdersManagement />;
+      case 'admin-notif':
+        return <AdminNotificationBroadcaster />;
+
+      // Captain Scoped Routes (30-40% Access)
+      case 'captain-sellers':
+        return <CaptainSellerOperations />;
+      case 'captain-tasks':
+        return <CaptainTasksFollowups />;
+      case 'captain-rfqs':
+        return <CaptainRFQsOrdersPerformance />;
+      case 'captain-notif':
+        return <CaptainNotifications />;
+
+      // Generic Role Nav Handles
+      case 'captains':
+        return currentRole === 'ADMIN' ? <AdminUserOperations /> : <SuperAdminUserManagement />;
+      case 'sellers':
+        return currentRole === 'CAPTAIN' ? <CaptainSellerOperations /> : currentRole === 'ADMIN' ? <AdminUserOperations /> : <SuperAdminUserManagement />;
+      case 'products':
+        return currentRole === 'CAPTAIN' ? <CaptainRFQsOrdersPerformance /> : currentRole === 'ADMIN' ? <AdminCatalogOperations /> : <SuperAdminCatalogManagement />;
+      case 'orders':
+        return currentRole === 'CAPTAIN' ? <CaptainRFQsOrdersPerformance /> : currentRole === 'ADMIN' ? <AdminRFQOrdersOperations /> : <SuperAdminRFQOrdersManagement />;
+
       case 'audit-logs':
         return <ActivityLogTable />;
       case 'users':
       case 'admins':
-      case 'captains':
-      case 'sellers':
-        return <UserManagementTable />;
+        return <SuperAdminUserManagement />;
       case 'add-captain-workflow':
-        return <AddCaptainWorkflow onComplete={() => setActiveTabNav('captains')} />;
+        return <AddCaptainWorkflow onComplete={() => setActiveTabNav(currentRole === 'ADMIN' ? 'admin-users' : 'users-mgmt')} />;
       case 'add-seller-workflow':
-        return <AddSellerWorkflow onComplete={() => setActiveTabNav('sellers')} />;
+        return <AddSellerWorkflow onComplete={() => setActiveTabNav(currentRole === 'CAPTAIN' ? 'captain-sellers' : currentRole === 'ADMIN' ? 'admin-users' : 'users-mgmt')} />;
       case 'permissions':
         return <PermissionMatrix />;
       case 'security':

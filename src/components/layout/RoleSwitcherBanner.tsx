@@ -9,8 +9,7 @@ export const RoleSwitcherBanner: React.FC = () => {
   const roles: { role: Role; label: string; icon: React.FC<{ className?: string }>; desc: string }[] = [
     { role: 'SUPER_ADMIN', label: 'Super Admin', icon: ShieldCheck, desc: 'Full System Control & Audit Logs' },
     { role: 'ADMIN', label: 'Admin', icon: UserCheck, desc: 'Captain & Regional Management' },
-    { role: 'CAPTAIN', label: 'Captain', icon: ShieldAlert, desc: 'Seller Onboarding & Support' },
-    { role: 'SELLER', label: 'Seller', icon: Store, desc: 'Products, Orders & Inventory' },
+    { role: 'CAPTAIN', label: 'Captain', icon: ShieldAlert, desc: 'Field Operations & Merchants' },
   ];
 
   return (

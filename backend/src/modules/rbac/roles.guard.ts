@@ -1,46 +1,43 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { Role } from '@prisma/client';
+// ============================================================================
+// Jaxmart B2B Platform - Express RBAC Security Guard & Middleware
+// Role Hierarchy Matrix: SUPER_ADMIN > ADMIN > CAPTAIN > SELLER > CUSTOMER
+// ============================================================================
 
-export const ROLES_KEY = 'roles';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'CAPTAIN' | 'SELLER' | 'CUSTOMER';
 
-@Injectable()
-export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+export const ROLE_HIERARCHY: Record<Role, number> = {
+  SUPER_ADMIN: 5,
+  ADMIN: 4,
+  CAPTAIN: 3,
+  SELLER: 2,
+  CUSTOMER: 1,
+};
 
-  canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+/**
+ * Check if a user's role satisfies required permission level
+ */
+export function hasRequiredRolePermission(userRole: Role, allowedRoles: Role[]): boolean {
+  const userLevel = ROLE_HIERARCHY[userRole] || 0;
+  return allowedRoles.some(requiredRole => userLevel >= (ROLE_HIERARCHY[requiredRole] || 0));
+}
 
-    if (!requiredRoles) {
-      return true;
-    }
-
-    const { user } = context.switchToHttp().getRequest();
-
+/**
+ * Express Middleware Guard for Role Based Access Control
+ */
+export function checkRoleAccess(allowedRoles: Role[]) {
+  return (req: any, res: any, next: any) => {
+    const user = req.user;
     if (!user) {
-      throw new ForbiddenException('User session not authenticated.');
+      return res.status(401).json({ success: false, error: 'Unauthorized user session.' });
     }
 
-    // Role Hierarchy Matrix: SUPER_ADMIN > ADMIN > CAPTAIN > SELLER
-    const roleHierarchy: Record<Role, number> = {
-      SUPER_ADMIN: 4,
-      ADMIN: 3,
-      CAPTAIN: 2,
-      SELLER: 1,
-    };
-
-    const userLevel = roleHierarchy[user.role as Role] || 0;
-    const hasRolePermission = requiredRoles.some(role => userLevel >= roleHierarchy[role]);
-
-    if (!hasRolePermission) {
-      throw new ForbiddenException(
-        `Role '${user.role}' is unauthorized to execute this action. Required: ${requiredRoles.join(', ')}`
-      );
+    if (!hasRequiredRolePermission(user.role as Role, allowedRoles)) {
+      return res.status(403).json({
+        success: false,
+        error: `Role '${user.role}' is unauthorized to perform this operation. Required: ${allowedRoles.join(', ')}`
+      });
     }
 
-    return true;
-  }
+    next();
+  };
 }

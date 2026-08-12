@@ -1,4 +1,4 @@
-export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'CAPTAIN' | 'SELLER';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'CAPTAIN' | 'SELLER' | 'CUSTOMER';
 
 export interface User {
   id: string;
@@ -19,6 +19,7 @@ export interface User {
   productsCount?: number;
   ordersCount?: number;
   revenue?: number;
+  isDeleted?: boolean;
   createdDate: string;
   lastLogin: string;
 }
@@ -35,8 +36,8 @@ export interface ActivityLog {
   userName: string;
   userRole: Role;
   userAvatar?: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'ACTIVATE' | 'DEACTIVATE' | 'LOGIN' | 'LOGOUT' | 'STATUS_CHANGE';
-  module: 'Admin Management' | 'Captain Management' | 'Seller Management' | 'Product Catalog' | 'Order Management' | 'Security & RBAC' | 'Authentication';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'ACTIVATE' | 'DEACTIVATE' | 'LOGIN' | 'LOGOUT' | 'STATUS_CHANGE' | 'RESTORE';
+  module: 'Admin Management' | 'Captain Management' | 'Seller Management' | 'Customer Management' | 'Product Catalog' | 'Order Management' | 'Security & RBAC' | 'Authentication' | 'System Settings';
   entity: string;
   targetId: string;
   targetName: string;
@@ -78,6 +79,14 @@ export interface Permission {
   seller: boolean;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  parentId?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -89,7 +98,32 @@ export interface Product {
   sellerName: string;
   captainName: string;
   status: 'APPROVED' | 'PENDING' | 'REJECTED';
+  isDeleted?: boolean;
   updatedAt: string;
+}
+
+export interface RFQ {
+  id: string;
+  rfqNumber: string;
+  customerName: string;
+  sellerId: string;
+  sellerName: string;
+  productName: string;
+  quantity: number;
+  status: 'PENDING' | 'QUOTED' | 'ACCEPTED' | 'REJECTED';
+  notes?: string;
+  createdAt: string;
+}
+
+export interface Quotation {
+  id: string;
+  rfqId: string;
+  sellerId: string;
+  sellerName: string;
+  totalAmount: number;
+  validUntil: string;
+  status: 'SENT' | 'ACCEPTED' | 'EXPIRED';
+  createdAt: string;
 }
 
 export interface Order {
@@ -100,7 +134,37 @@ export interface Order {
   sellerName: string;
   captainName: string;
   totalAmount: number;
-  status: 'DELIVERED' | 'PROCESSING' | 'PENDING' | 'CANCELLED';
+  paymentStatus: 'PAID' | 'PENDING' | 'REFUNDED';
+  status: 'DELIVERED' | 'PROCESSING' | 'SHIPPED' | 'CANCELLED';
   date: string;
   itemsCount: number;
 }
+
+export interface Payment {
+  id: string;
+  paymentNumber: string;
+  orderId: string;
+  amount: number;
+  paymentMethod: 'BANK_TRANSFER' | 'CREDIT_CARD' | 'UPI' | 'NET_BANKING';
+  status: 'COMPLETED' | 'PENDING' | 'FAILED';
+  transactionRef: string;
+  createdAt: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  targetRole: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface SystemSetting {
+  siteName: string;
+  supportEmail: string;
+  maintenanceMode: boolean;
+  autoApproveSellers: boolean;
+  allowGuestCheckout: boolean;
+}
+

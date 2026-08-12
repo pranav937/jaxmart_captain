@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Store, UserCheck, CheckCircle2, ArrowLeft, Mail, Lock, User, AlertTriangle } from 'lucide-react';
+import { UserCheck, CheckCircle2, ArrowLeft, Mail, Lock, User, AlertTriangle } from 'lucide-react';
 
 interface RegisterScreenProps {
   onSuccessRegister: () => void;
@@ -9,12 +9,10 @@ interface RegisterScreenProps {
 }
 
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({
-  onSuccessRegister,
   onNavigateLogin,
   onNavigateLanding,
 }) => {
-  const { registerCaptainAccount, addSeller } = useAuth();
-  const [targetRole, setTargetRole] = useState<'CAPTAIN' | 'SELLER'>('CAPTAIN');
+  const { registerCaptainAccount } = useAuth();
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,11 +22,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [captainEmail, setCaptainEmail] = useState('');
   const [captainPassword, setCaptainPassword] = useState('');
   const [captainConfirmPassword, setCaptainConfirmPassword] = useState('');
-
-  // Seller Form Fields
-  const [sellerName, setSellerName] = useState('');
-  const [sellerEmail, setSellerEmail] = useState('');
-  const [sellerCompany, setSellerCompany] = useState('');
 
   const handleCaptainSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,16 +66,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     }
   };
 
-  const handleSellerSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    addSeller({
-      firstName: sellerName,
-      email: sellerEmail,
-      companyName: sellerCompany,
-    });
-    setIsSuccess(true);
-  };
-
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-jaxmart-bg flex flex-col justify-center items-center p-4 font-sans">
@@ -91,10 +74,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             <CheckCircle2 className="w-10 h-10" />
           </div>
           <h2 className="text-2xl font-extrabold text-jaxmart-navy">
-            Captain Registered & Saved in PostgreSQL Database!
+            Captain Registered & Saved to Database!
           </h2>
           <p className="text-sm text-gray-600">
-            Captain <strong>{captainName || 'Account'}</strong> ({captainEmail}) has been saved to the PostgreSQL database.
+            Captain <strong>{captainName || 'Account'}</strong> ({captainEmail}) has been successfully submitted and saved.
           </p>
 
           <div className="p-4 bg-amber-50 rounded-lg text-left text-xs border border-amber-200 space-y-1.5 text-amber-900">
@@ -103,7 +86,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               <span>Pending Admin Activation:</span>
             </div>
             <p>
-              Your account status is currently <strong>INACTIVE</strong> in the database. Admin must activate your account before you can sign in using your registered Email & Password.
+              Your account status is currently <strong>INACTIVE</strong>. Admin will activate your account, after which you can sign in using your Email & Password.
             </p>
           </div>
 
@@ -147,55 +130,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             Jaxmart<span className="text-jaxmart-teal">.</span>
           </span>
         </div>
-        <h2 className="mt-3 text-2xl font-bold text-jaxmart-navy">
-          Captain Registration
+        <h2 className="mt-3 text-2xl font-bold text-jaxmart-navy flex items-center justify-center space-x-2">
+          <UserCheck className="w-6 h-6 text-jaxmart-teal" />
+          <span>Captain Registration</span>
         </h2>
         <p className="text-xs text-gray-500 mt-1">
-          Register with Name, Email, Password & Confirm Password
+          Sign up as a Field Captain (Name, Email, Password & Confirm Password)
         </p>
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 shadow-jaxmart-lg rounded-xl border border-gray-200 sm:px-8 space-y-5">
           
-          {/* Target Role Selector */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-jaxmart-mediumBlue mb-2">
-              Select Registration Type
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setTargetRole('CAPTAIN')}
-                className={`p-3 rounded-lg border text-left flex items-center space-x-2 transition-all ${
-                  targetRole === 'CAPTAIN'
-                    ? 'border-jaxmart-primary bg-blue-50/50 text-jaxmart-navy ring-2 ring-jaxmart-primary/20 font-bold'
-                    : 'border-gray-200 bg-jaxmart-bg text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                <UserCheck className="w-5 h-5 text-jaxmart-primary" />
-                <div>
-                  <div className="text-xs font-bold">Captain Registration</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTargetRole('SELLER')}
-                className={`p-3 rounded-lg border text-left flex items-center space-x-2 transition-all ${
-                  targetRole === 'SELLER'
-                    ? 'border-jaxmart-teal bg-teal-50/50 text-jaxmart-navy ring-2 ring-jaxmart-teal/20 font-bold'
-                    : 'border-gray-200 bg-jaxmart-bg text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                <Store className="w-5 h-5 text-jaxmart-teal" />
-                <div>
-                  <div className="text-xs font-bold">Seller Registration</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
           {/* Error Message */}
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-jaxmart-error font-semibold flex items-start space-x-2">
@@ -205,137 +151,95 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           )}
 
           {/* CAPTAIN REGISTRATION FORM */}
-          {targetRole === 'CAPTAIN' ? (
-            <form onSubmit={handleCaptainSubmit} className="space-y-4">
-              
-              {/* Field 1: Name */}
-              <div>
-                <label className="block text-xs font-bold text-jaxmart-navy mb-1">
-                  Captain Full Name *
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    value={captainName}
-                    onChange={(e) => setCaptainName(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-semibold text-jaxmart-navy"
-                    placeholder="Amit Verma"
-                  />
-                </div>
-              </div>
-
-              {/* Field 2: Email */}
-              <div>
-                <label className="block text-xs font-bold text-jaxmart-navy mb-1">
-                  Captain Email Address *
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    required
-                    value={captainEmail}
-                    onChange={(e) => setCaptainEmail(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-semibold text-jaxmart-navy"
-                    placeholder="captain.email@gmail.com"
-                  />
-                </div>
-              </div>
-
-              {/* Field 3: Password */}
-              <div>
-                <label className="block text-xs font-bold text-jaxmart-navy mb-1">
-                  Password *
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    required
-                    value={captainPassword}
-                    onChange={(e) => setCaptainPassword(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-semibold text-jaxmart-navy"
-                    placeholder="••••••••••••"
-                  />
-                </div>
-              </div>
-
-              {/* Field 4: Confirm Password */}
-              <div>
-                <label className="block text-xs font-bold text-jaxmart-navy mb-1">
-                  Confirm Password *
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    required
-                    value={captainConfirmPassword}
-                    onChange={(e) => setCaptainConfirmPassword(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-semibold text-jaxmart-navy"
-                    placeholder="••••••••••••"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 px-4 bg-jaxmart-primary text-white rounded-lg text-xs font-bold hover:bg-jaxmart-navy transition-all shadow-sm flex justify-center items-center space-x-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <span>Saving to PostgreSQL Database...</span>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Register Captain Account</span>
-                  </>
-                )}
-              </button>
-            </form>
-          ) : (
-            /* SELLER FORM */
-            <form onSubmit={handleSellerSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-jaxmart-navy mb-1">Seller Full Name *</label>
+          <form onSubmit={handleCaptainSubmit} className="space-y-4">
+            
+            {/* Field 1: Name */}
+            <div>
+              <label className="block text-xs font-bold text-jaxmart-navy mb-1">
+                Captain Full Name *
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   required
-                  value={sellerName}
-                  onChange={(e) => setSellerName(e.target.value)}
-                  className="w-full px-3 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs"
+                  value={captainName}
+                  onChange={(e) => setCaptainName(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-semibold text-jaxmart-navy"
+                  placeholder="Amit Verma"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-jaxmart-navy mb-1">Official Email *</label>
+            </div>
+
+            {/* Field 2: Email */}
+            <div>
+              <label className="block text-xs font-bold text-jaxmart-navy mb-1">
+                Captain Email Address *
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   required
-                  value={sellerEmail}
-                  onChange={(e) => setSellerEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs"
+                  value={captainEmail}
+                  onChange={(e) => setCaptainEmail(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-semibold text-jaxmart-navy"
+                  placeholder="captain.email@gmail.com"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-jaxmart-navy mb-1">Company Name *</label>
+            </div>
+
+            {/* Field 3: Password */}
+            <div>
+              <label className="block text-xs font-bold text-jaxmart-navy mb-1">
+                Password *
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
-                  type="text"
+                  type="password"
                   required
-                  value={sellerCompany}
-                  onChange={(e) => setSellerCompany(e.target.value)}
-                  className="w-full px-3 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs"
+                  value={captainPassword}
+                  onChange={(e) => setCaptainPassword(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-semibold text-jaxmart-navy"
+                  placeholder="••••••••••••"
                 />
               </div>
-              <button
-                type="submit"
-                className="w-full py-3 px-4 bg-jaxmart-teal text-white rounded-lg text-xs font-bold hover:bg-teal-600"
-              >
-                Submit Seller Registration
-              </button>
-            </form>
-          )}
+            </div>
+
+            {/* Field 4: Confirm Password */}
+            <div>
+              <label className="block text-xs font-bold text-jaxmart-navy mb-1">
+                Confirm Password *
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="password"
+                  required
+                  value={captainConfirmPassword}
+                  onChange={(e) => setCaptainConfirmPassword(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-jaxmart-bg border border-gray-300 rounded-lg text-xs font-semibold text-jaxmart-navy"
+                  placeholder="••••••••••••"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-jaxmart-primary text-white rounded-lg text-xs font-bold hover:bg-jaxmart-navy transition-all shadow-sm flex justify-center items-center space-x-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <span>Registering Captain...</span>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Register Captain Account</span>
+                </>
+              )}
+            </button>
+          </form>
 
           {/* Footer link to Login */}
           <div className="text-center pt-3 border-t border-gray-100 text-xs text-gray-500">
