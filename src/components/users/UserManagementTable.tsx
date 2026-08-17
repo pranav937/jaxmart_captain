@@ -110,7 +110,9 @@ export const UserManagementTable: React.FC = () => {
                   {/* User Identity */}
                   <td className="p-3.5">
                     <div className="flex items-center space-x-3">
-                      <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full border border-gray-200" />
+                      <div className="w-8 h-8 rounded-full bg-jaxmart-navy text-white font-bold flex items-center justify-center text-xs shrink-0 border border-gray-200">
+                        {(user.name || 'U').charAt(0).toUpperCase()}
+                      </div>
                       <div>
                         <div className="font-bold text-jaxmart-navy">{user.name}</div>
                         {user.companyName && (

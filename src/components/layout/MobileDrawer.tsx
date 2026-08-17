@@ -16,17 +16,12 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose, act
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard' },
-    { id: 'audit-logs', label: 'Activity & Audit Logs' },
     { id: 'users', label: 'User Hierarchy' },
     { id: 'admins', label: 'Admins' },
     { id: 'captains', label: 'Captains' },
     { id: 'sellers', label: 'Sellers' },
-    { id: 'add-captain-workflow', label: '+ Add Captain Wizard' },
     { id: 'add-seller-workflow', label: '+ Add Seller Wizard' },
-    { id: 'permissions', label: 'Permission Matrix' },
-    { id: 'security', label: 'Security Logs' },
     { id: 'products', label: 'Products' },
-    { id: 'orders', label: 'Orders' },
   ];
 
   return (

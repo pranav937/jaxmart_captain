@@ -60,7 +60,7 @@ interface DashboardProps {
 
 export const CaptainDashboard: React.FC<DashboardProps> = () => {
   const { currentUser, notificationToast, setNotificationToast } = useAuth();
-  
+
   // Date State - Defaulted to Today's Date YYYY-MM-DD
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -84,7 +84,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
         const list: AttendanceRecord[] = JSON.parse(globalSaved);
         return list.filter(r => r.captainId === currentUser.id);
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [activeSession, setActiveSession] = useState<AttendanceRecord | null>(() => {
@@ -95,7 +95,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
         const open = list.find(a => a.captainId === currentUser.id && a.date === todayStr && a.status === 'PUNCHED_IN');
         return open || null;
       }
-    } catch (e) {}
+    } catch (e) { }
     return null;
   });
 
@@ -113,7 +113,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
         const list: FieldProduct[] = JSON.parse(globalSaved);
         return list.filter(p => p.captainId === currentUser.id);
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [submittingProduct, setSubmittingProduct] = useState(false);
@@ -124,8 +124,8 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
   const [prdSubCategory, setPrdSubCategory] = useState('Power Tools');
   const [prdPrice, setPrdPrice] = useState('');
   const [prdColor, setPrdColor] = useState('Red');
-  const [prdImage, setPrdImage] = useState<string>('https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400');
-  const [prdColorImage, setPrdColorImage] = useState<string>('https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400');
+  const [prdImage, setPrdImage] = useState<string>('');
+  const [prdColorImage, setPrdColorImage] = useState<string>('');
 
   // Sub Category Options Map based on selected Category
   const subCategoryMap: Record<string, string[]> = {
@@ -227,36 +227,58 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
       const savedLocal = localStorage.getItem(`jaxmart_captain_field_products_${currentUser.id}`);
       let localItems: FieldProduct[] = savedLocal ? JSON.parse(savedLocal) : [];
 
-      // 2. Backend API
-      const res = await fetch(`http://localhost:3000/api/captain/field-products?captainId=${currentUser.id}`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-        const backendFormatted: FieldProduct[] = data.products.map((p: any) => ({
-          id: p.id,
-          captainId: p.captain_id,
-          name: p.name,
-          category: p.category,
-          subCategory: p.sub_category,
-          price: parseFloat(p.price),
-          color: p.color || 'Standard',
-          imageUrl: p.image_url || 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400',
-          colorImageUrl: p.color_image_url || p.image_url || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400',
-          status: p.status || 'PENDING',
-          createdAt: p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : todayStr
-        })).filter((p: FieldProduct) => p.captainId === currentUser.id);
+      // 2. Global LocalStorage fallback
+      try {
+        const globalSaved = localStorage.getItem('jaxmart_captain_field_products');
+        if (globalSaved) {
+          const globalList: FieldProduct[] = JSON.parse(globalSaved);
+          if (Array.isArray(globalList)) {
+            globalList.forEach(item => {
+              if (item && item.captainId === currentUser.id && !localItems.some(l => l.id === item.id)) {
+                localItems.push(item);
+              }
+            });
+          }
+        }
+      } catch (e) { }
 
-        // Merge maps: backend updates status of existing local items
-        const mergedMap = new Map<string, FieldProduct>();
-        localItems.forEach(item => { if (item.captainId === currentUser.id) mergedMap.set(item.id, item); });
-        backendFormatted.forEach(item => mergedMap.set(item.id, item));
+      // 3. Backend API
+      let backendFormatted: FieldProduct[] = [];
+      try {
+        const res = await fetch(`http://localhost:3000/api/captain/field-products?captainId=${currentUser.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.products)) {
+            backendFormatted = data.products.map((p: any) => ({
+              id: p.id,
+              captainId: p.captain_id,
+              name: p.name,
+              category: p.category,
+              subCategory: p.sub_category,
+              price: parseFloat(p.price),
+              color: p.color || 'Standard',
+              imageUrl: p.image_url || '',
+              colorImageUrl: p.color_image_url || p.image_url || '',
+              status: p.status || 'PENDING',
+              createdAt: p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : todayStr
+            })).filter((p: FieldProduct) => p.captainId === currentUser.id);
+          }
+        }
+      } catch (e) { }
 
-        const mergedList = Array.from(mergedMap.values());
-        setFieldProducts(mergedList);
-        localStorage.setItem(`jaxmart_captain_field_products_${currentUser.id}`, JSON.stringify(mergedList));
-      } else if (localItems.length > 0) {
-        const filteredLocal = localItems.filter(p => p.captainId === currentUser.id);
-        setFieldProducts(filteredLocal);
-      }
+      // 4. Merge Local items + Backend items safely (Backend fresh photos take priority)
+      const mergedMap = new Map<string, FieldProduct>();
+      localItems.forEach(item => { if (item && item.id) mergedMap.set(item.id, item); });
+      backendFormatted.forEach(item => {
+        if (item && item.id) {
+          const existing = mergedMap.get(item.id);
+          mergedMap.set(item.id, { ...(existing || {}), ...item });
+        }
+      });
+
+      const mergedList = Array.from(mergedMap.values());
+      setFieldProducts(mergedList);
+      localStorage.setItem(`jaxmart_captain_field_products_${currentUser.id}`, JSON.stringify(mergedList));
     } catch (e) {
       console.error(e);
     }
@@ -368,61 +390,99 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
     }
 
     setSubmittingProduct(true);
-    const newPrd: FieldProduct = {
-      id: `FPRD-${Math.floor(100 + Math.random() * 900)}`,
-      captainId: currentUser.id,
-      captainName: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
-      name: prdName.trim(),
-      category: prdCategory,
-      subCategory: prdSubCategory,
-      price: parseFloat(prdPrice),
-      color: prdColor,
-      imageUrl: prdImage,
-      colorImageUrl: prdColorImage,
-      status: 'PENDING',
-      createdAt: todayStr
-    };
 
-    setFieldProducts(prev => {
-      const updated = [newPrd, ...prev.filter(p => p.captainId === currentUser.id)];
-      localStorage.setItem(`jaxmart_captain_field_products_${currentUser.id}`, JSON.stringify(updated));
+    try {
+      const captainFullName = (currentUser.name || `${currentUser.firstName || ''} ${currentUser.lastName || ''}`).trim() || 'Captain';
 
-      // Also update global fallback key
+      const newPrd: FieldProduct = {
+        id: `FPRD-${Math.floor(100 + Math.random() * 900)}`,
+        captainId: currentUser.id,
+        captainName: captainFullName,
+        name: prdName.trim(),
+        category: prdCategory,
+        subCategory: prdSubCategory,
+        price: parseFloat(prdPrice),
+        color: prdColor,
+        imageUrl: prdImage,
+        colorImageUrl: prdColorImage,
+        status: 'PENDING',
+        createdAt: todayStr
+      };
+
+      // Lightweight version for storage to prevent browser QuotaExceededError crashes on large photos
+      const safeImg = (prdImage && prdImage.length > 100000)
+        ? 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400'
+        : prdImage;
+      const safeColorImg = (prdColorImage && prdColorImage.length > 100000)
+        ? 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400'
+        : prdColorImage;
+
+      const lightweightPrd: FieldProduct = {
+        ...newPrd,
+        imageUrl: safeImg,
+        colorImageUrl: safeColorImg
+      };
+
+      // 1. Update React State instantly
+      setFieldProducts(prev => [newPrd, ...prev.filter(p => p.id !== newPrd.id)]);
+
+      // 2. Safe LocalStorage save with try/catch
+      try {
+        const savedLocal = localStorage.getItem(`jaxmart_captain_field_products_${currentUser.id}`);
+        const localList: FieldProduct[] = savedLocal ? JSON.parse(savedLocal) : [];
+        const updatedLocal = [lightweightPrd, ...localList.filter(p => p.id !== newPrd.id)];
+        localStorage.setItem(`jaxmart_captain_field_products_${currentUser.id}`, JSON.stringify(updatedLocal));
+      } catch (err) {
+        console.warn('LocalStorage quota warning:', err);
+      }
+
       try {
         const globalSaved = localStorage.getItem('jaxmart_captain_field_products');
         const globalList: FieldProduct[] = globalSaved ? JSON.parse(globalSaved) : [];
-        const mergedGlobal = [newPrd, ...globalList.filter(p => p.id !== newPrd.id)];
+        const mergedGlobal = [lightweightPrd, ...globalList.filter(p => p.id !== newPrd.id)];
         localStorage.setItem('jaxmart_captain_field_products', JSON.stringify(mergedGlobal));
-      } catch (e) {}
+      } catch (err) {
+        console.warn('Global LocalStorage quota warning:', err);
+      }
 
-      return updated;
-    });
-    setNotificationToast(`⏳ Field Product "${prdName}" submitted! Status: PENDING (Awaiting Admin Approval)`);
+      setNotificationToast(`✅ Field Product "${prdName}" submitted! Status: PENDING (Awaiting Admin Approval)`);
 
-    try {
-      await fetch('http://localhost:3000/api/captain/field-products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: newPrd.id,
-          captainId: currentUser.id,
-          name: prdName,
-          category: prdCategory,
-          subCategory: prdSubCategory,
-          price: parseFloat(prdPrice),
-          color: prdColor,
-          imageUrl: prdImage,
-          colorImageUrl: prdColorImage
-        })
-      });
-    } catch (e) {
-      console.error(e);
+      // Reset Form Inputs
+      setPrdName('');
+      setPrdPrice('');
+      setPrdImage('');
+      setPrdColorImage('');
+
+      // 3. Send to Backend API with 5s timeout fallback
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        await fetch('http://localhost:3000/api/captain/field-products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            id: newPrd.id,
+            captainId: currentUser.id,
+            name: newPrd.name,
+            category: newPrd.category,
+            subCategory: newPrd.subCategory,
+            price: newPrd.price,
+            color: newPrd.color,
+            imageUrl: safeImg,
+            colorImageUrl: safeColorImg
+          })
+        });
+        clearTimeout(timeoutId);
+      } catch (apiErr) {
+        console.warn('API submission notice:', apiErr);
+      }
+    } catch (err) {
+      console.error('Submission error:', err);
+    } finally {
+      setSubmittingProduct(false);
     }
-
-    // Reset Form
-    setSubmittingProduct(false);
-    setPrdName('');
-    setPrdPrice('');
   };
 
   return (
@@ -523,9 +583,8 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
               <Clock className="w-5 h-5 text-jaxmart-primary" />
               <h2 className="text-base font-bold text-jaxmart-navy">Daily Attendance Control Actions</h2>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider ${
-              activeSession ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 animate-pulse' : 'bg-gray-100 text-gray-600'
-            }`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider ${activeSession ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 animate-pulse' : 'bg-gray-100 text-gray-600'
+              }`}>
               {activeSession ? 'Status: Currently Punched In' : 'Status: Not Punched In'}
             </span>
           </div>
@@ -591,9 +650,8 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
             </div>
           </div>
 
-          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-            activeSession ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
-          }`}>
+          <span className={`px-3 py-1 rounded-full text-xs font-bold ${activeSession ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
+            }`}>
             {activeSession ? '🔓 Form Unlocked (Shift Active)' : '🔒 Form Locked (Punch In Required)'}
           </span>
         </div>
@@ -608,9 +666,9 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
           </div>
         ) : (
           <form onSubmit={handleProductSubmit} className="space-y-6 text-xs">
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              
+
               {/* Field 1: Product Name */}
               <div>
                 <label className="font-bold text-jaxmart-navy block mb-1 flex items-center space-x-1">
@@ -687,7 +745,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
 
             {/* Field 5 & 6: Image Capture / File Select Controls */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-jaxmart-bg p-5 rounded-xl border border-gray-200">
-              
+
               {/* Product Main Image Section */}
               <div className="space-y-3">
                 <label className="font-bold text-jaxmart-navy block text-xs flex items-center space-x-1.5">
@@ -696,11 +754,18 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                 </label>
 
                 <div className="flex items-center space-x-4">
-                  <img
-                    src={prdImage}
-                    alt="Product Main Preview"
-                    className="w-20 h-20 rounded-lg object-cover border-2 border-jaxmart-primary/30 shadow-sm shrink-0 bg-white"
-                  />
+                  {prdImage ? (
+                    <img
+                      src={prdImage}
+                      alt="Product Main Preview"
+                      className="w-20 h-20 rounded-lg object-cover border-2 border-jaxmart-primary/30 shadow-sm shrink-0 bg-white"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center bg-white text-gray-400 text-[10px] shrink-0 font-semibold">
+                      <Camera className="w-6 h-6 text-gray-300 mb-1" />
+                      <span>No Photo</span>
+                    </div>
+                  )}
                   <div className="space-y-2 text-xs">
                     <label className="px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold text-jaxmart-navy hover:bg-gray-50 cursor-pointer inline-flex items-center space-x-2 shadow-sm">
                       <Upload className="w-4 h-4 text-jaxmart-teal" />
@@ -732,11 +797,10 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                       key={col}
                       type="button"
                       onClick={() => setPrdColor(col)}
-                      className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-all ${
-                        prdColor === col
+                      className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-all ${prdColor === col
                           ? 'bg-jaxmart-navy text-white border-jaxmart-navy shadow-sm'
                           : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       {col}
                     </button>
@@ -744,11 +808,18 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                 </div>
 
                 <div className="flex items-center space-x-4">
-                  <img
-                    src={prdColorImage}
-                    alt="Color Variant Preview"
-                    className="w-20 h-20 rounded-lg object-cover border-2 border-purple-300 shadow-sm shrink-0 bg-white"
-                  />
+                  {prdColorImage ? (
+                    <img
+                      src={prdColorImage}
+                      alt="Color Variant Preview"
+                      className="w-20 h-20 rounded-lg object-cover border-2 border-purple-300 shadow-sm shrink-0 bg-white"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-lg border-2 border-dashed border-purple-200 flex flex-col items-center justify-center bg-purple-50/50 text-purple-400 text-[10px] shrink-0 font-semibold">
+                      <Palette className="w-6 h-6 text-purple-300 mb-1" />
+                      <span>No Photo</span>
+                    </div>
+                  )}
                   <div className="space-y-2 text-xs">
                     <label className="px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold text-jaxmart-navy hover:bg-gray-50 cursor-pointer inline-flex items-center space-x-2 shadow-sm">
                       <Upload className="w-4 h-4 text-purple-600" />
@@ -825,10 +896,18 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                 fieldProducts.map(p => (
                   <tr key={p.id} className="hover:bg-jaxmart-bg/50 transition-colors">
                     <td className="p-3.5">
-                      <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-lg object-cover border shadow-sm" />
+                      {p.imageUrl ? (
+                        <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-lg object-cover border shadow-sm bg-white" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg border border-dashed border-gray-300 flex items-center justify-center bg-gray-50 text-[10px] text-gray-400 font-semibold">No Photo</div>
+                      )}
                     </td>
                     <td className="p-3.5">
-                      <img src={p.colorImageUrl} alt={p.color} className="w-12 h-12 rounded-lg object-cover border border-purple-200 shadow-sm" />
+                      {p.colorImageUrl ? (
+                        <img src={p.colorImageUrl} alt={p.color} className="w-12 h-12 rounded-lg object-cover border border-purple-200 shadow-sm bg-white" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg border border-dashed border-purple-200 flex items-center justify-center bg-purple-50 text-[10px] text-purple-400 font-semibold">No Photo</div>
+                      )}
                     </td>
                     <td className="p-3.5 font-bold text-jaxmart-navy">
                       <div>{p.name}</div>
@@ -847,14 +926,13 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                       ₹{p.price.toLocaleString('en-IN')}
                     </td>
                     <td className="p-3.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
-                        p.status === 'REJECTED' ? 'bg-red-100 text-jaxmart-error' :
-                        'bg-amber-100 text-amber-800'
-                      }`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                          p.status === 'REJECTED' ? 'bg-red-100 text-jaxmart-error' :
+                            'bg-amber-100 text-amber-800'
+                        }`}>
                         {p.status === 'APPROVED' ? '✓ APPROVED (Ready for Selling)' :
-                         p.status === 'REJECTED' ? '✗ REJECTED (Declined)' :
-                         '⏳ PENDING (Awaiting Admin Approval)'}
+                          p.status === 'REJECTED' ? '✗ REJECTED (Declined)' :
+                            '⏳ PENDING (Awaiting Admin Approval)'}
                       </span>
                     </td>
                     <td className="p-3.5 text-right text-gray-500 font-mono">
@@ -912,9 +990,8 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                       {r.totalHours || 'Ongoing'}
                     </td>
                     <td className="p-3.5 text-right">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        r.status === 'PUNCHED_IN' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'PUNCHED_IN' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
                         {r.status === 'PUNCHED_IN' ? 'PUNCHED IN' : 'PUNCHED OUT'}
                       </span>
                     </td>

@@ -18,7 +18,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const connectionString = process.env.DATABASE_URL || "postgresql://postgres:Jadequest%403009@localhost:5432/captain?schema=public";
 
@@ -199,7 +200,7 @@ async function initializeDbSchema() {
 app.get('/api/users', async (req, res) => {
   try {
     const showDeleted = req.query.showDeleted === 'true';
-    const query = showDeleted 
+    const query = showDeleted
       ? 'SELECT * FROM users ORDER BY created_at DESC;'
       : 'SELECT * FROM users WHERE is_deleted = FALSE OR is_deleted IS NULL ORDER BY created_at DESC;';
 
@@ -592,8 +593,8 @@ app.post('/api/captain/field-products', async (req, res) => {
         subCategory || 'General',
         parseFloat(price),
         color || 'Standard',
-        imageUrl || 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=300',
-        colorImageUrl || imageUrl || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300'
+        imageUrl || null,
+        colorImageUrl || null
       ]
     );
 
@@ -646,4 +647,5 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(`===========================================================\n`);
   await initializeDbSchema();
 });
+
 

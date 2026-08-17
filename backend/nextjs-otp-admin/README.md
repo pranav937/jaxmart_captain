@@ -88,7 +88,7 @@ curl -X POST http://localhost:3000/api/auth/send-otp \
 }
 ```
 
----
+---`
 
 ### 2. Verify OTP (`POST /api/auth/verify-otp`)
 ```bash

@@ -13,22 +13,15 @@ import { AdminDashboard } from './components/dashboards/AdminDashboard';
 import { CaptainDashboard } from './components/dashboards/CaptainDashboard';
 import { SellerDashboard } from './components/dashboards/SellerDashboard';
 
-import { ActivityLogTable } from './components/audit/ActivityLogTable';
 import { ActivityDetailDrawer } from './components/audit/ActivityDetailDrawer';
 import { AddCaptainWorkflow } from './components/workflows/AddCaptainWorkflow';
 import { AddSellerWorkflow } from './components/workflows/AddSellerWorkflow';
-import { PermissionMatrix } from './components/permissions/PermissionMatrix';
-import { UserManagementTable } from './components/users/UserManagementTable';
-import { SecurityLogTable } from './components/security/SecurityLogTable';
 
 import { SuperAdminUserManagement } from './components/admin/SuperAdminUserManagement';
 import { SuperAdminCatalogManagement } from './components/admin/SuperAdminCatalogManagement';
-import { SuperAdminRFQOrdersManagement } from './components/admin/SuperAdminRFQOrdersManagement';
-import { SuperAdminAnalyticsSettings } from './components/admin/SuperAdminAnalyticsSettings';
 
 import { AdminUserOperations } from './components/admin/AdminUserOperations';
 import { AdminCatalogOperations } from './components/admin/AdminCatalogOperations';
-import { AdminRFQOrdersOperations } from './components/admin/AdminRFQOrdersOperations';
 import { AdminNotificationBroadcaster } from './components/admin/AdminNotificationBroadcaster';
 
 import { CaptainSellerOperations } from './components/captain/CaptainSellerOperations';
@@ -86,18 +79,12 @@ const MainContent: React.FC = () => {
         return <SuperAdminUserManagement />;
       case 'catalog':
         return <SuperAdminCatalogManagement />;
-      case 'rfq-orders':
-        return <SuperAdminRFQOrdersManagement />;
-      case 'analytics-settings':
-        return <SuperAdminAnalyticsSettings />;
 
-      // Admin Scoped Routes (70-80% Access)
+      // Admin Scoped Routes
       case 'admin-users':
         return currentRole === 'ADMIN' ? <AdminUserOperations /> : <SuperAdminUserManagement />;
       case 'admin-catalog':
         return currentRole === 'ADMIN' ? <AdminCatalogOperations /> : <SuperAdminCatalogManagement />;
-      case 'admin-rfq-orders':
-        return currentRole === 'ADMIN' ? <AdminRFQOrdersOperations /> : <SuperAdminRFQOrdersManagement />;
       case 'admin-notif':
         return <AdminNotificationBroadcaster />;
 
@@ -118,11 +105,7 @@ const MainContent: React.FC = () => {
         return currentRole === 'CAPTAIN' ? <CaptainSellerOperations /> : currentRole === 'ADMIN' ? <AdminUserOperations /> : <SuperAdminUserManagement />;
       case 'products':
         return currentRole === 'CAPTAIN' ? <CaptainRFQsOrdersPerformance /> : currentRole === 'ADMIN' ? <AdminCatalogOperations /> : <SuperAdminCatalogManagement />;
-      case 'orders':
-        return currentRole === 'CAPTAIN' ? <CaptainRFQsOrdersPerformance /> : currentRole === 'ADMIN' ? <AdminRFQOrdersOperations /> : <SuperAdminRFQOrdersManagement />;
 
-      case 'audit-logs':
-        return <ActivityLogTable />;
       case 'users':
       case 'admins':
         return <SuperAdminUserManagement />;
@@ -130,10 +113,6 @@ const MainContent: React.FC = () => {
         return <AddCaptainWorkflow onComplete={() => setActiveTabNav(currentRole === 'ADMIN' ? 'admin-users' : 'users-mgmt')} />;
       case 'add-seller-workflow':
         return <AddSellerWorkflow onComplete={() => setActiveTabNav(currentRole === 'CAPTAIN' ? 'captain-sellers' : currentRole === 'ADMIN' ? 'admin-users' : 'users-mgmt')} />;
-      case 'permissions':
-        return <PermissionMatrix />;
-      case 'security':
-        return <SecurityLogTable />;
       default:
         return renderDashboardByRole();
     }

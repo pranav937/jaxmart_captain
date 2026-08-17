@@ -74,7 +74,9 @@ export const ActivityDetailDrawer: React.FC<DrawerProps> = ({ log, onClose }) =>
             </h3>
 
             <div className="flex items-center space-x-3">
-              <img src={log.userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'} alt="" className="w-10 h-10 rounded-full" />
+              <div className="w-10 h-10 rounded-full bg-jaxmart-navy text-white font-bold flex items-center justify-center text-sm shrink-0">
+                {(log.userName || 'U').charAt(0).toUpperCase()}
+              </div>
               <div>
                 <div className="text-sm font-bold text-jaxmart-navy">{log.userName}</div>
                 <div className="text-xs text-gray-500">Role: <span className="font-semibold text-jaxmart-primary">{log.userRole}</span> (ID: {log.userId})</div>

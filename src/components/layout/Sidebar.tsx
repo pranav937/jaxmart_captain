@@ -42,21 +42,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           { id: 'dashboard', label: 'Overview Control Center', icon: LayoutDashboard },
           { id: 'users-mgmt', label: 'Admins & Captains Governance', icon: Users, badge: '100%' },
           { id: 'catalog', label: 'Products & Categories', icon: Package },
-          { id: 'rfq-orders', label: 'RFQs, Orders & Payments', icon: ShoppingCart },
-          { id: 'analytics-settings', label: 'Reports & Settings', icon: Settings },
-          { id: 'permissions', label: 'Permission Matrix', icon: KeyRound },
-          { id: 'security', label: 'Security & Auth Logs', icon: Lock },
-          { id: 'audit-logs', label: 'Activity & Audit Logs', icon: FileText, badge: 'Core' },
-          { id: 'add-captain-workflow', label: 'Add Captain Wizard', icon: UserPlus, highlight: true },
         ];
       case 'ADMIN':
         return [
           { id: 'dashboard', label: 'Admin Operations', icon: LayoutDashboard },
-          { id: 'admin-users', label: 'Captain Management', icon: UserCheck, badge: '70-80%' },
+          { id: 'admin-users', label: 'Captain Management', icon: UserCheck },
           { id: 'admin-catalog', label: 'Products & Categories', icon: Package },
-          { id: 'admin-rfq-orders', label: 'RFQs, Orders & Payments', icon: ShoppingCart },
           { id: 'admin-notif', label: 'Send Announcements', icon: Bell },
-          { id: 'audit-logs', label: 'Activity Logs', icon: FileText },
         ];
       case 'CAPTAIN':
         return [

@@ -124,7 +124,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
                       }`}
                   >
                     <div className="flex items-center space-x-3">
-                      <img src={u.avatarUrl} alt="" className="w-8 h-8 rounded-full border" />
+                      <div className="w-8 h-8 rounded-full bg-jaxmart-navy text-white font-bold flex items-center justify-center text-xs shrink-0">
+                        {(u.name || 'U').charAt(0).toUpperCase()}
+                      </div>
                       <div>
                         <div className="text-xs font-bold text-jaxmart-navy">
                           {u.name}

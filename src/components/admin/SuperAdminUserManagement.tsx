@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export const SuperAdminUserManagement: React.FC = () => {
-  const { users, updateUserStatus, setNotificationToast, createUserAccount } = useAuth();
+  const { users, updateUserStatus, deleteUserAccount, restoreUserAccount, setNotificationToast, createUserAccount } = useAuth();
   const [activeTab, setActiveTab] = useState<'ALL' | 'ADMIN' | 'CAPTAIN' | 'SELLER' | 'CUSTOMER' | 'DELETED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -67,23 +67,13 @@ export const SuperAdminUserManagement: React.FC = () => {
 
   const handleDeleteUser = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete ${name}? (Record will be archived)`)) return;
-    try {
-      await fetch(`http://localhost:3000/api/users/${id}`, { method: 'DELETE' });
-      await updateUserStatus(id, 'INACTIVE');
-      setNotificationToast(`🗑️ User ${name} archived/deleted.`);
-    } catch (e) {
-      await updateUserStatus(id, 'INACTIVE');
-    }
+    await deleteUserAccount(id);
+    setNotificationToast(`🗑️ User ${name} moved to Archived / Deleted.`);
   };
 
   const handleRestoreUser = async (id: string, name: string) => {
-    try {
-      await fetch(`http://localhost:3000/api/users/${id}/restore`, { method: 'POST' });
-      await updateUserStatus(id, 'ACTIVE');
-      setNotificationToast(`🔄 User ${name} restored to active status.`);
-    } catch (e) {
-      await updateUserStatus(id, 'ACTIVE');
-    }
+    await restoreUserAccount(id);
+    setNotificationToast(`🔄 User ${name} restored to active status.`);
   };
 
   const handleAssignCaptain = async () => {
@@ -177,7 +167,9 @@ export const SuperAdminUserManagement: React.FC = () => {
                   <tr key={u.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="p-3">
                       <div className="flex items-center space-x-3">
-                        <img src={u.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'} alt={u.name} className="w-8 h-8 rounded-full border border-gray-200 object-cover" />
+                        <div className="w-8 h-8 rounded-full bg-jaxmart-navy text-white font-bold flex items-center justify-center text-xs shrink-0 border border-gray-200">
+                          {(u.name || 'U').charAt(0).toUpperCase()}
+                        </div>
                         <div>
                           <div className="font-bold text-jaxmart-navy">{u.name}</div>
                           <div className="text-[11px] text-gray-500">{u.email} • {u.mobile}</div>
@@ -280,7 +272,6 @@ export const SuperAdminUserManagement: React.FC = () => {
                 >
                   <option value="ADMIN">Admin</option>
                   <option value="CAPTAIN">Captain</option>
-                  <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
               </div>
 

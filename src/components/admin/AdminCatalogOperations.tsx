@@ -10,9 +10,9 @@ const mockCategories: Category[] = [
 ];
 
 const mockProducts: Product[] = [
-  { id: 'PRD-101', name: 'Heavy Duty Angle Grinder 850W', sku: 'SKU-TOOL-001', category: 'Industrial Hardware', price: 3499, stock: 120, sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', captainName: 'Amit Verma', status: 'APPROVED', updatedAt: '2026-08-11' },
-  { id: 'PRD-102', name: 'Industrial Circuit Breaker 63A 4P', sku: 'SKU-ELEC-002', category: 'Electrical & Electronics', price: 1250, stock: 450, sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', captainName: 'Amit Verma', status: 'APPROVED', updatedAt: '2026-08-11' },
-  { id: 'PRD-103', name: 'Steel Toe Executive Safety Boots', sku: 'SKU-SAFE-003', category: 'Safety Gear & PPE', price: 1899, stock: 200, sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', captainName: 'Amit Verma', status: 'APPROVED', updatedAt: '2026-08-10' },
+  { id: 'PRD-101', name: 'Heavy Duty Angle Grinder 850W', sku: 'SKU-TOOL-001', category: 'Industrial Hardware', price: 3499, stock: 120, sellerId: 'USR-SEL-301', sellerName: 'Apex Industrial Tools', captainName: 'juhi hada', status: 'APPROVED', updatedAt: '2026-08-11' },
+  { id: 'PRD-102', name: 'Industrial Circuit Breaker 63A 4P', sku: 'SKU-ELEC-002', category: 'Electrical & Electronics', price: 1250, stock: 450, sellerId: 'USR-SEL-302', sellerName: 'Gujarat Electricals', captainName: 'abc', status: 'APPROVED', updatedAt: '2026-08-11' },
+  { id: 'PRD-103', name: 'Steel Toe Executive Safety Boots', sku: 'SKU-SAFE-003', category: 'Safety Gear & PPE', price: 1899, stock: 200, sellerId: 'USR-SEL-303', sellerName: 'SafetyFirst Enterprise', captainName: 'pk pipaliya', status: 'APPROVED', updatedAt: '2026-08-10' },
 ];
 
 export const AdminCatalogOperations: React.FC = () => {

@@ -18,6 +18,8 @@ interface AuthContextType {
   createUserAccount: (data: { firstName: string; lastName?: string; email: string; mobile?: string; role: Role; password?: string; companyName?: string }) => Promise<{ success: boolean; message?: string }>;
   addCaptain: (data: Partial<User>) => void;
   addSeller: (data: Partial<User>) => void;
+  deleteUserAccount: (id: string) => Promise<void>;
+  restoreUserAccount: (id: string) => Promise<void>;
   updateUserStatus: (id: string, newStatus: 'ACTIVE' | 'INACTIVE') => Promise<void>;
   sendAdminOtp: (email: string) => { success: boolean; message: string; debugOtp?: string };
   verifyAdminOtp: (email: string, otpInput: string) => { success: boolean; message?: string };
@@ -43,7 +45,7 @@ const defaultUsers: User[] = [
     mobile: '+91 98765 43210',
     role: 'SUPER_ADMIN',
     status: 'ACTIVE',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    avatarUrl: '',
     createdDate: new Date().toISOString().split('T')[0],
     lastLogin: 'Just Now',
   },
@@ -56,7 +58,7 @@ const defaultUsers: User[] = [
     mobile: '+91 99999 88888',
     role: 'SUPER_ADMIN',
     status: 'ACTIVE',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    avatarUrl: '',
     createdDate: new Date().toISOString().split('T')[0],
     lastLogin: 'Just Now',
   },
@@ -69,7 +71,7 @@ const defaultUsers: User[] = [
     mobile: '+91 98220 11223',
     role: 'ADMIN',
     status: 'ACTIVE',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    avatarUrl: '',
     createdDate: new Date().toISOString().split('T')[0],
     lastLogin: 'Just Now',
     sellersCount: 0,
@@ -88,7 +90,7 @@ const defaultAuditLogs: ActivityLog[] = [
     userId: 'USR-SA-001',
     userName: 'Super Admin',
     userRole: 'SUPER_ADMIN',
-    userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    userAvatar: '',
     action: 'CREATE',
     module: 'Security & RBAC',
     entity: 'Platform Core',
@@ -111,7 +113,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentRole, setCurrentRole] = useState<Role>('SUPER_ADMIN');
   const [users, setUsers] = useState<User[]>(defaultUsers);
-  
+
   const [passwordsStore, setPasswordsStore] = useState<Record<string, string>>(() => {
     try {
       const saved = localStorage.getItem('jaxmart_passwords_v2');
@@ -133,10 +135,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [activeOtpData, setActiveOtpData] = useState<OtpData | null>(null);
 
-  // FETCH USERS FROM POSTGRESQL DB
+  // FETCH USERS FROM POSTGRESQL DB (Include soft deleted users for Archived tab)
   const fetchUsersFromDb = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/users');
+      const res = await fetch('http://localhost:3000/api/users?showDeleted=true');
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.users) && data.users.length > 0) {
@@ -193,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sellersCount: 0,
       createdDate: new Date().toISOString().split('T')[0],
       lastLogin: 'Never (Pending Admin Activation)',
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
+      avatarUrl: ''
     };
 
     // 1. Instant Optimistic React State Update (Appears in Admin & Super Admin Views immediately!)
@@ -254,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       companyName: data.companyName,
       createdDate: new Date().toISOString().split('T')[0],
       lastLogin: 'Active',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+      avatarUrl: ''
     };
 
     // 1. Instant Optimistic React State Update
@@ -289,6 +291,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return { success: true, message: `${data.role} account created successfully!` };
+  };
+
+  // SOFT DELETE USER ACCOUNT - INSTANT OPTIMISTIC UI + POSTGRESQL DB SYNC
+  const deleteUserAccount = async (id: string) => {
+    // 1. Instant Optimistic React State Update (Moves to Archived / Deleted tab immediately!)
+    setUsers(prev => {
+      const updated = prev.map(u => u.id === id ? { ...u, isDeleted: true, status: 'INACTIVE' as const } : u);
+      try {
+        localStorage.setItem('jaxmart_users_v2', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+
+    // 2. Persist soft delete into PostgreSQL Database
+    try {
+      await fetch(`http://localhost:3000/api/users/${id}`, { method: 'DELETE' });
+      await fetchUsersFromDb();
+    } catch (e) {
+      console.error('API Error soft deleting user:', e);
+    }
+  };
+
+  // RESTORE DELETED USER ACCOUNT - INSTANT OPTIMISTIC UI + POSTGRESQL DB SYNC
+  const restoreUserAccount = async (id: string) => {
+    // 1. Instant Optimistic React State Update (Moves back to active user list immediately!)
+    setUsers(prev => {
+      const updated = prev.map(u => u.id === id ? { ...u, isDeleted: false, status: 'ACTIVE' as const } : u);
+      try {
+        localStorage.setItem('jaxmart_users_v2', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+
+    // 2. Persist restore into PostgreSQL Database
+    try {
+      await fetch(`http://localhost:3000/api/users/${id}/restore`, { method: 'POST' });
+      await fetchUsersFromDb();
+    } catch (e) {
+      console.error('API Error restoring user:', e);
+    }
   };
 
   // UPDATE USER STATUS - INSTANT OPTIMISTIC UI + POSTGRESQL DB SYNC
@@ -424,7 +470,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       revenue: 0,
       createdDate: new Date().toISOString().split('T')[0],
       lastLogin: 'Active',
-      avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150'
+      avatarUrl: ''
     };
 
     setUsers(prev => [newSeller, ...prev]);
@@ -449,6 +495,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createUserAccount,
       addCaptain,
       addSeller,
+      deleteUserAccount,
+      restoreUserAccount,
       updateUserStatus,
       sendAdminOtp,
       verifyAdminOtp,

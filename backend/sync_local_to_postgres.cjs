@@ -67,7 +67,6 @@ async function syncAllRecordsToPostgres() {
       ON CONFLICT (id) DO NOTHING;
     `, ['ATT-2026-001', 'USR-CAP-201', now, 'Lat: 23.0225, Lng: 72.5714 - SG Highway, Ahmedabad, Gujarat']);
     console.log('✅ Seeded Attendance Record into PostgreSQL DB!');
-
     // 3. Verify final DB row counts
     const fpRes = await pool.query('SELECT count(*) FROM captain_field_products;');
     const attRes = await pool.query('SELECT count(*) FROM captain_attendance;');

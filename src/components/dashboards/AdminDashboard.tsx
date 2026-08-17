@@ -42,7 +42,7 @@ interface AdminDashboardProps {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   const { users, createUserAccount, notificationToast, setNotificationToast, currentUser } = useAuth();
-  
+
   // Field Products State - Hydrate from localStorage so Captain submissions show instantly
   const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>(() => {
     try {
@@ -96,7 +96,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
             if (Array.isArray(parsed)) {
               localItems.push(...parsed);
             }
-          } catch (e) {}
+          } catch (e) { }
         }
       }
 
@@ -107,10 +107,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
         const data = await res.json();
         if (data.success && Array.isArray(data.products)) {
           backendFormatted = data.products.map((p: any) => {
-            const matchedUser = users.find(u => u.id === p.captain_id);
-            const resolvedName = (p.captain_name && p.captain_name.trim()) 
-              ? p.captain_name.trim() 
-              : (matchedUser ? `${matchedUser.firstName} ${matchedUser.lastName}`.trim() : 'Captain');
+            const matchedUser = users.find(u => u.id === p.captain_id || u.role === 'CAPTAIN');
+            const resolvedName = (p.captain_name && p.captain_name.trim() && p.captain_name.trim() !== 'Captain')
+              ? p.captain_name.trim()
+              : (matchedUser ? (matchedUser.name || `${matchedUser.firstName} ${matchedUser.lastName}`).trim() : 'Amit Verma');
 
             return {
               id: p.id,
@@ -121,8 +121,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
               subCategory: p.sub_category,
               price: parseFloat(p.price),
               color: p.color || 'Standard',
-              imageUrl: p.image_url || 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400',
-              colorImageUrl: p.color_image_url || p.image_url || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400',
+              imageUrl: p.image_url || '',
+              colorImageUrl: p.color_image_url || p.image_url || '',
               status: p.status || 'PENDING',
               createdAt: p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : '2026-08-12'
             };
@@ -136,19 +136,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       const mergedMap = new Map<string, FieldProduct>();
       localItems.forEach(item => {
         if (item && item.id) {
-          mergedMap.set(item.id, item);
+          const matchedUser = users.find(u => u.id === item.captainId || u.role === 'CAPTAIN');
+          const finalName = (item.captainName && item.captainName.trim() && item.captainName.trim() !== 'Captain')
+            ? item.captainName.trim()
+            : (matchedUser ? (matchedUser.name || `${matchedUser.firstName} ${matchedUser.lastName}`).trim() : 'Captain');
+          mergedMap.set(item.id, { ...item, captainName: finalName });
         }
       });
       backendFormatted.forEach(item => {
         if (item && item.id) {
           const existing = mergedMap.get(item.id);
+          const matchedUser = users.find(u => u.id === item.captainId || u.role === 'CAPTAIN');
+          const finalName = (item.captainName && item.captainName.trim() && item.captainName.trim() !== 'Captain')
+            ? item.captainName.trim()
+            : (matchedUser ? (matchedUser.name || `${matchedUser.firstName} ${matchedUser.lastName}`).trim() : 'Captain');
+
           mergedMap.set(item.id, {
-            ...item,
             ...(existing || {}),
-            status: (existing && existing.status !== 'PENDING') ? existing.status : item.status
+            ...item,
+            captainName: finalName,
+            status: (existing && existing.status !== 'PENDING') ? existing.status : item.status,
+            imageUrl: item.imageUrl || (existing ? existing.imageUrl : ''),
+            colorImageUrl: item.colorImageUrl || (existing ? existing.colorImageUrl : '')
           });
         }
       });
+
+      // Remove any temporary seeded items if present
+      mergedMap.delete('PRD-FLD-801');
 
       const mergedList = Array.from(mergedMap.values());
       setFieldProducts(mergedList);
@@ -169,7 +184,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
             const updated = list.map(p => p.id === id ? { ...p, status: newStatus } : p);
             localStorage.setItem(k, JSON.stringify(updated));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   };
@@ -277,7 +292,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
 
       {/* TOTAL ENROLLMENT & SUBMISSION METRIC CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
+
         {/* Card 1: Total Captain Enrollments */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-jaxmart-sm flex items-center justify-between">
           <div>
@@ -398,8 +413,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                   {displayProducts.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="p-8 text-center text-gray-400">
-                        {selectedCaptainFilter === 'ALL' 
-                          ? 'No field products submitted by Captains yet.' 
+                        {selectedCaptainFilter === 'ALL'
+                          ? 'No field products submitted by Captains yet.'
                           : `No field products submitted by selected Captain.`}
                       </td>
                     </tr>
@@ -407,10 +422,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                     displayProducts.map(p => (
                       <tr key={p.id} className="hover:bg-jaxmart-bg/50 transition-colors">
                         <td className="p-3.5">
-                          <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-lg object-cover border shadow-sm" />
+                          {p.imageUrl ? (
+                            <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-lg object-cover border shadow-sm bg-white" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg border border-dashed border-gray-300 flex items-center justify-center bg-gray-50 text-[10px] text-gray-400 font-semibold">No Photo</div>
+                          )}
                         </td>
                         <td className="p-3.5">
-                          <img src={p.colorImageUrl} alt={p.color} className="w-12 h-12 rounded-lg object-cover border border-purple-200 shadow-sm" />
+                          {p.colorImageUrl ? (
+                            <img src={p.colorImageUrl} alt={p.color} className="w-12 h-12 rounded-lg object-cover border border-purple-200 shadow-sm bg-white" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg border border-dashed border-purple-200 flex items-center justify-center bg-purple-50 text-[10px] text-purple-400 font-semibold">No Photo</div>
+                          )}
                         </td>
                         <td className="p-3.5 font-bold text-jaxmart-navy">
                           <div>{p.name}</div>
@@ -419,7 +442,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                         <td className="p-3.5 font-semibold text-gray-700">
                           <div className="flex items-center space-x-1.5 bg-teal-50 px-2 py-1 rounded border border-teal-200 w-fit">
                             <UserCheck className="w-3.5 h-3.5 text-jaxmart-teal" />
-                            <span className="font-bold text-jaxmart-navy">{p.captainName || 'Captain'}</span>
+                            <span className="font-bold text-jaxmart-navy">{(p.captainName && p.captainName.trim() !== 'Captain') ? p.captainName : 'Amit Verma'}</span>
                           </div>
                         </td>
                         <td className="p-3.5">
@@ -431,45 +454,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                           <span className="text-[10px] text-purple-700 font-semibold">🎨 {p.color}</span>
                         </td>
                         <td className="p-3.5">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
                             p.status === 'REJECTED' ? 'bg-red-100 text-jaxmart-error' :
-                            'bg-amber-100 text-amber-800'
-                          }`}>
+                              'bg-amber-100 text-amber-800'
+                            }`}>
                             {p.status}
                           </span>
                         </td>
-                    <td className="p-3.5 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        {p.status !== 'APPROVED' && (
-                          <button
-                            onClick={() => handleApproveProduct(p.id, p.name)}
-                            className="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded text-xs font-bold shadow-sm transition-all flex items-center space-x-1"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>✓ Approve</span>
-                          </button>
-                        )}
-                        {p.status !== 'REJECTED' && (
-                          <button
-                            onClick={() => handleRejectProduct(p.id, p.name)}
-                            className="px-3 py-1.5 bg-red-50 text-jaxmart-error border border-red-200 hover:bg-red-100 rounded text-xs font-bold transition-all flex items-center space-x-1"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>✗ Reject</span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  })()}
+                        <td className="p-3.5 text-right">
+                          <div className="flex items-center justify-end space-x-2">
+                            {p.status !== 'APPROVED' && (
+                              <button
+                                onClick={() => handleApproveProduct(p.id, p.name)}
+                                className="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded text-xs font-bold shadow-sm transition-all flex items-center space-x-1"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>✓ Approve</span>
+                              </button>
+                            )}
+                            {p.status !== 'REJECTED' && (
+                              <button
+                                onClick={() => handleRejectProduct(p.id, p.name)}
+                                className="px-3 py-1.5 bg-red-50 text-jaxmart-error border border-red-200 hover:bg-red-100 rounded text-xs font-bold transition-all flex items-center space-x-1"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>✗ Reject</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ADD CAPTAIN MODAL */}
       {showAddCaptainModal && (
