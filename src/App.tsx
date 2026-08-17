@@ -33,8 +33,72 @@ type PageState = 'LANDING' | 'LOGIN' | 'ADMIN_PANEL';
 
 const MainContent: React.FC = () => {
   const { currentRole, selectedAuditLog, setSelectedAuditLog, activeTabNav, setActiveTabNav } = useAuth();
-  const [currentPage, setCurrentPage] = useState<PageState>('LANDING');
+
+  const getInitialPageState = (): PageState => {
+    try {
+      const hash = window.location.hash.replace('#', '');
+      if (hash.includes('page=')) {
+        const pageMatch = hash.split('page=')[1]?.split('&')[0];
+        if (pageMatch === 'LOGIN' || pageMatch === 'ADMIN_PANEL' || pageMatch === 'LANDING') {
+          return pageMatch as PageState;
+        }
+      }
+      const savedPage = localStorage.getItem('jaxmart_current_page');
+      if (savedPage === 'LOGIN' || savedPage === 'ADMIN_PANEL' || savedPage === 'LANDING') {
+        return savedPage as PageState;
+      }
+    } catch (e) { }
+    return 'ADMIN_PANEL'; // Default to ADMIN_PANEL so refreshing keeps user on workspace
+  };
+
+  const [currentPage, setCurrentPageState] = useState<PageState>(getInitialPageState);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const setCurrentPage = (page: PageState, pushHistory = true) => {
+    setCurrentPageState(page);
+    try {
+      localStorage.setItem('jaxmart_current_page', page);
+      const activeTab = localStorage.getItem('jaxmart_active_tab') || 'dashboard';
+      const hashUrl = `#page=${page}&tab=${activeTab}`;
+      if (pushHistory && window.location.hash !== hashUrl) {
+        window.history.pushState({ page, tab: activeTab }, '', hashUrl);
+      }
+    } catch (e) { }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Browser Back / Forward Button Listener (popstate / hashchange)
+  React.useEffect(() => {
+    const handlePopState = (e: Event) => {
+      try {
+        const popState = e as PopStateEvent;
+        const state = popState.state;
+        if (state && state.page) {
+          setCurrentPageState(state.page);
+          if (state.tab) setActiveTabNav(state.tab, false);
+          return;
+        }
+        const hash = window.location.hash.replace('#', '');
+        if (hash) {
+          const pageMatch = hash.includes('page=') ? hash.split('page=')[1]?.split('&')[0] : null;
+          const tabMatch = hash.includes('tab=') ? hash.split('tab=')[1]?.split('&')[0] : null;
+          if (pageMatch === 'LOGIN' || pageMatch === 'ADMIN_PANEL' || pageMatch === 'LANDING') {
+            setCurrentPageState(pageMatch as PageState);
+          }
+          if (tabMatch) {
+            setActiveTabNav(tabMatch, false);
+          }
+        }
+      } catch (err) { }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, [setActiveTabNav]);
 
   // 1. PUBLIC LANDING PAGE
   if (currentPage === 'LANDING') {

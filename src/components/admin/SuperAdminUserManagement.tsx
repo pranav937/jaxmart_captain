@@ -120,8 +120,8 @@ export const SuperAdminUserManagement: React.FC = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all ${activeTab === tab.id
-                    ? 'bg-jaxmart-navy text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-jaxmart-navy text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100'
                   }`}
               >
                 <tab.icon className="w-3.5 h-3.5" />
@@ -180,9 +180,9 @@ export const SuperAdminUserManagement: React.FC = () => {
 
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase ${u.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-800' :
-                          u.role === 'ADMIN' ? 'bg-blue-100 text-blue-800' :
-                            u.role === 'CAPTAIN' ? 'bg-teal-100 text-teal-800' :
-                              u.role === 'SELLER' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
+                        u.role === 'ADMIN' ? 'bg-blue-100 text-blue-800' :
+                          u.role === 'CAPTAIN' ? 'bg-teal-100 text-teal-800' :
+                            u.role === 'SELLER' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
                         }`}>
                         {u.role.replace('_', ' ')}
                       </span>

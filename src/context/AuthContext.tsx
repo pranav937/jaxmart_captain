@@ -28,7 +28,7 @@ interface AuthContextType {
   selectedAuditLog: ActivityLog | null;
   setSelectedAuditLog: (log: ActivityLog | null) => void;
   activeTabNav: string;
-  setActiveTabNav: (tab: string) => void;
+  setActiveTabNav: (tab: string, pushHistory?: boolean) => void;
   notificationToast: string | null;
   setNotificationToast: (msg: string | null) => void;
   activeOtpData: OtpData | null;
@@ -111,7 +111,14 @@ const defaultAuditLogs: ActivityLog[] = [
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentRole, setCurrentRole] = useState<Role>('SUPER_ADMIN');
+  const [currentRole, setCurrentRoleState] = useState<Role>(() => {
+    try {
+      const saved = localStorage.getItem('jaxmart_current_role');
+      if (saved) return saved as Role;
+    } catch (e) { }
+    return 'SUPER_ADMIN';
+  });
+
   const [users, setUsers] = useState<User[]>(defaultUsers);
 
   const [passwordsStore, setPasswordsStore] = useState<Record<string, string>>(() => {
@@ -127,13 +134,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return defaultPasswords;
   });
 
-  const [currentUser, setCurrentUser] = useState<User>(defaultUsers[0]);
+  const [currentUser, setCurrentUserState] = useState<User>(() => {
+    try {
+      const saved = localStorage.getItem('jaxmart_current_user');
+      if (saved) return JSON.parse(saved);
+    } catch (e) { }
+    return defaultUsers[0];
+  });
+
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(defaultAuditLogs);
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [selectedAuditLog, setSelectedAuditLog] = useState<ActivityLog | null>(null);
-  const [activeTabNav, setActiveTabNav] = useState<string>('dashboard');
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [activeOtpData, setActiveOtpData] = useState<OtpData | null>(null);
+
+  const [activeTabNav, setActiveTabNavState] = useState<string>(() => {
+    try {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && hash.includes('tab=')) {
+        const tabMatch = hash.split('tab=')[1]?.split('&')[0];
+        if (tabMatch) return tabMatch;
+      }
+      const saved = localStorage.getItem('jaxmart_active_tab');
+      if (saved) return saved;
+    } catch (e) { }
+    return 'dashboard';
+  });
 
   // FETCH USERS FROM POSTGRESQL DB (Include soft deleted users for Archived tab)
   const fetchUsersFromDb = async () => {
@@ -157,6 +183,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const interval = setInterval(fetchUsersFromDb, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const setActiveTabNav = (tab: string, pushHistory = true) => {
+    setActiveTabNavState(tab);
+    try {
+      localStorage.setItem('jaxmart_active_tab', tab);
+      const currentPage = localStorage.getItem('jaxmart_current_page') || 'ADMIN_PANEL';
+      const hashUrl = `#page=${currentPage}&tab=${tab}`;
+      if (pushHistory && window.location.hash !== hashUrl) {
+        window.history.pushState({ page: currentPage, tab }, '', hashUrl);
+      }
+    } catch (e) { }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const setCurrentUser = (user: User) => {
+    setCurrentUserState(user);
+    try {
+      localStorage.setItem('jaxmart_current_user', JSON.stringify(user));
+    } catch (e) { }
+  };
+
+  const setCurrentRole = (role: Role) => {
+    setCurrentRoleState(role);
+    try {
+      localStorage.setItem('jaxmart_current_role', role);
+    } catch (e) { }
+  };
 
   const setRole = (role: Role) => {
     setCurrentRole(role);

@@ -151,7 +151,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Level 1: Super Admin */}
             <div className="p-6 bg-purple-50/50 rounded-xl border border-purple-200 shadow-jaxmart-sm flex flex-col justify-between hover:shadow-jaxmart-card transition-all">
@@ -204,24 +204,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <ul className="mt-4 pt-4 border-t border-teal-200/60 space-y-1.5 text-xs text-teal-900 font-semibold">
                 <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-jaxmart-teal" /> Onboard Sellers</li>
                 <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-jaxmart-teal" /> Seller Support</li>
-              </ul>
-            </div>
-
-            {/* Level 4: Seller */}
-            <div className="p-6 bg-amber-50/50 rounded-xl border border-amber-200 shadow-jaxmart-sm flex flex-col justify-between hover:shadow-jaxmart-card transition-all">
-              <div>
-                <div className="w-12 h-12 bg-amber-500 text-white rounded-xl flex items-center justify-center font-bold mb-4 shadow-sm">
-                  <Store className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Level 4</span>
-                <h3 className="text-xl font-bold text-jaxmart-navy mt-1">Seller Partner</h3>
-                <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-                  Manage store products, update inventory levels, track customer purchase orders, and access revenue analytics.
-                </p>
-              </div>
-              <ul className="mt-4 pt-4 border-t border-amber-200/60 space-y-1.5 text-xs text-amber-900 font-semibold">
-                <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> Catalog & Stock</li>
-                <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> Isolated View</li>
               </ul>
             </div>
 
