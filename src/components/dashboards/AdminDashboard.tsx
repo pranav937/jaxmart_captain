@@ -64,7 +64,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     email: '',
     mobile: '',
     role: 'CAPTAIN' as Role,
-    password: '123456'
+    password: ''
   });
 
   useEffect(() => {
@@ -238,7 +238,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
         email: '',
         mobile: '',
         role: 'CAPTAIN',
-        password: '123456'
+        password: ''
       });
     }
   };
@@ -559,14 +559,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
               </div>
 
               <div>
-                <label className="font-semibold text-gray-700 block mb-1">Account Password (Default: 123456)</label>
+                <label className="font-semibold text-gray-700 block mb-1">Account Password</label>
                 <input
                   type="text"
                   value={newCaptain.password}
                   onChange={e => setNewCaptain({ ...newCaptain, password: e.target.value })}
+                  placeholder="Type password for this Captain"
                   className="w-full p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-mono text-xs font-bold"
+                  required
                 />
-                <span className="text-[10px] text-gray-400">Keep 123456 or type a custom password.</span>
+                <span className="text-[10px] text-gray-400">Whatever password you type here will be required for login.</span>
               </div>
 
               <div className="pt-3 flex items-center justify-end space-x-2 border-t border-gray-100">

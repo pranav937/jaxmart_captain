@@ -286,7 +286,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // CREATE USER ACCOUNT (SUPER ADMIN PERMISSION: ADMIN, CAPTAIN, SELLER, CUSTOMER)
   const createUserAccount = async (data: { firstName: string; lastName?: string; email: string; mobile?: string; role: Role; password?: string; companyName?: string }): Promise<{ success: boolean; message?: string }> => {
     const formattedEmail = data.email.trim().toLowerCase();
-    const pass = data.password || '123456';
+    const pass = data.password && data.password.trim() ? data.password.trim() : '';
     const fullName = `${data.firstName.trim()} ${data.lastName ? data.lastName.trim() : ''}`.trim();
 
     if (users.some(u => u.email.toLowerCase() === formattedEmail)) {
@@ -448,8 +448,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    const expectedPassword = passwordsStore[formattedEmail] || '123456';
-    if (passwordInput.trim() !== expectedPassword && passwordInput.trim() !== '123456') {
+    const expectedPassword = passwordsStore[formattedEmail];
+    if (expectedPassword && passwordInput.trim() !== expectedPassword) {
       return {
         success: false,
         message: `❌ Invalid Password! The password entered does not match.`
@@ -494,11 +494,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true };
   };
 
-  const addCaptain = (data: Partial<User>) => {
+  const addCaptain = (data: Partial<User> & { password?: string }) => {
     registerCaptainAccount({
       name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'New Captain',
       email: data.email || 'captain@jaxmart.com',
-      password: '123456'
+      password: data.password || ''
     });
   };
 

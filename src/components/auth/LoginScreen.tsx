@@ -29,13 +29,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccessLogin, onForg
     } else if (role === 'SUPER_ADMIN') {
       setEmailInput('Jax@gmail.com');
     }
-    setPasswordInput('123456');
+    setPasswordInput('');
     setErrorMessage(null);
   };
 
   const handleUserSelect = (user: User) => {
     setEmailInput(user.email);
-    setPasswordInput('123456');
+    setPasswordInput('');
     setErrorMessage(null);
   };
 

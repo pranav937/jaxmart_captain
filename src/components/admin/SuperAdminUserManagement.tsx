@@ -33,7 +33,7 @@ export const SuperAdminUserManagement: React.FC = () => {
     email: '',
     mobile: '',
     role: 'ADMIN' as Role,
-    password: '123456',
+    password: '',
     companyName: ''
   });
 
@@ -59,7 +59,7 @@ export const SuperAdminUserManagement: React.FC = () => {
     if (result.success) {
       setNotificationToast(`✅ ${newUser.role} user created successfully!`);
       setShowAddModal(false);
-      setNewUser({ firstName: '', lastName: '', email: '', mobile: '', role: 'ADMIN', password: '123456', companyName: '' });
+      setNewUser({ firstName: '', lastName: '', email: '', mobile: '', role: 'ADMIN', password: '', companyName: '' });
     } else {
       alert(result.message || 'Failed to create user');
     }
@@ -320,15 +320,16 @@ export const SuperAdminUserManagement: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-semibold text-gray-700 block mb-1">Account Password (Default: 123456)</label>
+                <label className="font-semibold text-gray-700 block mb-1">Account Password</label>
                 <input
                   type="text"
                   value={newUser.password}
                   onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                  placeholder="123456"
+                  placeholder="Type password for this account"
                   className="w-full p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-mono text-xs"
+                  required
                 />
-                <span className="text-[10px] text-gray-400">You can keep 123456 or type a custom password for this account.</span>
+                <span className="text-[10px] text-gray-400">Whatever password you type here will be required for this user to login.</span>
               </div>
 
               {newUser.role === 'SELLER' && (

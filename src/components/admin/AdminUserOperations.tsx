@@ -85,7 +85,7 @@ export const AdminUserOperations: React.FC = () => {
     email: '',
     mobile: '',
     role: 'CAPTAIN' as Role,
-    password: '123456'
+    password: ''
   });
 
   // Fetch Attendance & Products Data
@@ -238,7 +238,7 @@ export const AdminUserOperations: React.FC = () => {
     if (res.success) {
       setNotificationToast(`✅ Captain ${newCaptain.firstName} created successfully! (Status: Active)`);
       setShowAddCaptainModal(false);
-      setNewCaptain({ firstName: '', lastName: '', email: '', mobile: '', role: 'CAPTAIN', password: '123456' });
+      setNewCaptain({ firstName: '', lastName: '', email: '', mobile: '', role: 'CAPTAIN', password: '' });
     } else {
       alert(res.message || 'Failed to create Captain');
     }
@@ -967,15 +967,16 @@ export const AdminUserOperations: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-semibold text-gray-700 block mb-1">Captain Password (Default: 123456)</label>
+                <label className="font-semibold text-gray-700 block mb-1">Captain Password</label>
                 <input
                   type="text"
                   value={newCaptain.password}
                   onChange={e => setNewCaptain({ ...newCaptain, password: e.target.value })}
-                  placeholder="123456"
+                  placeholder="Enter password for this Captain"
                   className="w-full p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-mono text-xs"
+                  required
                 />
-                <span className="text-[10px] text-gray-400">Default password is 123456. You can type a custom password if desired.</span>
+                <span className="text-[10px] text-gray-400">Whatever password you type here will be required for this Captain to login.</span>
               </div>
 
               <div className="pt-3 flex items-center justify-end space-x-2">
