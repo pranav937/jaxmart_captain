@@ -61,27 +61,12 @@ const defaultUsers: User[] = [
     avatarUrl: '',
     createdDate: new Date().toISOString().split('T')[0],
     lastLogin: 'Just Now',
-  },
-  {
-    id: 'USR-ADM-101',
-    name: 'Jaxmart Admin',
-    firstName: 'Jaxmart',
-    lastName: 'Admin',
-    email: 'jaxmart@gmail.com',
-    mobile: '+91 98220 11223',
-    role: 'ADMIN',
-    status: 'ACTIVE',
-    avatarUrl: '',
-    createdDate: new Date().toISOString().split('T')[0],
-    lastLogin: 'Just Now',
-    sellersCount: 0,
   }
 ];
 
 const defaultPasswords: Record<string, string> = {
   'jax@gmail.com': '123456',
   'superadmin@jaxmart.com': '123456',
-  'jaxmart@gmail.com': '123456',
 };
 
 const defaultAuditLogs: ActivityLog[] = [
@@ -164,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // FETCH USERS FROM POSTGRESQL DB (Include soft deleted users for Archived tab)
   const fetchUsersFromDb = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/users?showDeleted=true');
+      const res = await fetch('http://localhost:5000/api/users?showDeleted=true');
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.users) && data.users.length > 0) {
@@ -264,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 2. Persist to PostgreSQL Database API
     try {
-      const apiRes = await fetch('http://localhost:3000/api/captain/register', {
+      const apiRes = await fetch('http://localhost:5000/api/captain/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: data.name, email: data.email, password: data.password })
@@ -325,7 +310,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 2. Persist to PostgreSQL Backend API
     try {
-      await fetch('http://localhost:3000/api/users', {
+      await fetch('http://localhost:5000/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -361,7 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 2. Persist soft delete into PostgreSQL Database
     try {
-      await fetch(`http://localhost:3000/api/users/${id}`, { method: 'DELETE' });
+      await fetch(`http://localhost:5000/api/users/${id}`, { method: 'DELETE' });
       await fetchUsersFromDb();
     } catch (e) {
       console.error('API Error soft deleting user:', e);
@@ -383,7 +368,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 2. Persist restore into PostgreSQL Database
     try {
-      await fetch(`http://localhost:3000/api/users/${id}/restore`, { method: 'POST' });
+      await fetch(`http://localhost:5000/api/users/${id}/restore`, { method: 'POST' });
       await fetchUsersFromDb();
     } catch (e) {
       console.error('API Error restoring user:', e);
@@ -405,7 +390,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 2. Persist update into PostgreSQL Database
     try {
-      await fetch('http://localhost:3000/api/users/status', {
+      await fetch('http://localhost:5000/api/users/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, newStatus })

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Role } from '../../types';
+import { User, Role, OnboardedCompany, ProductMaster, SkuMaster, GradeMaster } from '../../types';
+import { CompanyDetailViewModal } from '../captain/CompanyDetailViewModal';
 import {
   Users,
   UserCheck,
@@ -16,13 +17,18 @@ import {
   Palette,
   FileText,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  Layers,
+  Scale,
+  Maximize2
 } from 'lucide-react';
 
 interface FieldProduct {
   id: string;
   captainId: string;
   captainName?: string;
+  companyName?: string;
   name: string;
   category: string;
   subCategory: string;
@@ -43,15 +49,14 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   const { users, createUserAccount, notificationToast, setNotificationToast, currentUser } = useAuth();
 
-  // Field Products State - Hydrate from localStorage so Captain submissions show instantly
-  const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>(() => {
-    try {
-      const saved = localStorage.getItem('jaxmart_captain_field_products');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+  // Field Products State - Fetched strictly from PostgreSQL DB
+  const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>([]);
+
+  // Companies, Product Masters & SKUs State - Fetched strictly from PostgreSQL DB
+  const [companies, setCompanies] = useState<OnboardedCompany[]>([]);
+  const [productMasters, setProductMasters] = useState<ProductMaster[]>([]);
+  const [skus, setSkus] = useState<SkuMaster[]>([]);
+  const [viewCompanyId, setViewCompanyId] = useState<string | null>(null);
 
   // Captain Filter State for Captain-wise Grouping
   const [selectedCaptainFilter, setSelectedCaptainFilter] = useState<string>('ALL');
@@ -69,13 +74,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
 
   useEffect(() => {
     fetchBackendProducts();
+    fetchBackendCompanies();
+    fetchBackendProductMasters();
+    fetchBackendSkus();
 
-    // Poll for new Captain product submissions every 2 seconds & on window focus
+    // Poll for new Captain product & company submissions every 2 seconds & on window focus
     const interval = setInterval(() => {
       fetchBackendProducts();
+      fetchBackendCompanies();
+      fetchBackendProductMasters();
+      fetchBackendSkus();
     }, 2000);
 
-    const onFocus = () => fetchBackendProducts();
+    const onFocus = () => {
+      fetchBackendProducts();
+      fetchBackendCompanies();
+      fetchBackendProductMasters();
+      fetchBackendSkus();
+    };
     window.addEventListener('focus', onFocus);
 
     return () => {
@@ -84,92 +100,159 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     };
   }, []);
 
+  const fetchBackendCompanies = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/captain/companies');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.companies)) {
+        const formatted: OnboardedCompany[] = data.companies.map((c: any) => ({
+          id: c.id,
+          captainId: c.captain_id,
+          captainName: c.captain_name || 'Captain',
+          companyName: c.company_name,
+          ownerName: c.owner_name || '',
+          gstin: c.gstin || '',
+          mobile: c.mobile || '',
+          email: c.email || '',
+          city: c.city || 'Surat',
+          sellingCategories: c.selling_categories || 'General',
+          status: c.status || 'PENDING',
+          createdAt: c.created_at ? new Date(c.created_at).toISOString().split('T')[0] : '2026-08-12'
+        }));
+        setCompanies(formatted);
+      }
+    } catch (e) { }
+  };
+
+  const handleApproveCompany = async (id: string, name: string) => {
+    setCompanies(prev => prev.map(c => c.id === id ? { ...c, status: 'APPROVED' as const } : c));
+    setNotificationToast(`✅ Company "${name}" APPROVED! Captain can now add products under this company.`);
+    try {
+      await fetch(`http://localhost:5000/api/admin/companies/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'APPROVED' })
+      });
+    } catch (e) { }
+  };
+
+  const handleRejectCompany = async (id: string, name: string) => {
+    setCompanies(prev => prev.map(c => c.id === id ? { ...c, status: 'REJECTED' as const } : c));
+    setNotificationToast(`❌ Company "${name}" REJECTED.`);
+    try {
+      await fetch(`http://localhost:5000/api/admin/companies/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'REJECTED' })
+      });
+    } catch (e) { }
+  };
+
+  const fetchBackendProductMasters = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/captain/product-masters');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.productMasters)) {
+        setProductMasters(data.productMasters);
+      }
+    } catch (e) { }
+  };
+
+  const handleApproveProductMaster = async (id: string, name: string) => {
+    setProductMasters(prev => prev.map(pm => pm.id === id ? { ...pm, status: 'APPROVED' as const } : pm));
+    setNotificationToast(`✅ Product Master "${name}" APPROVED!`);
+    try {
+      await fetch(`http://localhost:5000/api/admin/product-masters/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'APPROVED' })
+      });
+    } catch (e) { }
+  };
+
+  const handleRejectProductMaster = async (id: string, name: string) => {
+    setProductMasters(prev => prev.map(pm => pm.id === id ? { ...pm, status: 'REJECTED' as const } : pm));
+    setNotificationToast(`❌ Product Master "${name}" REJECTED.`);
+    try {
+      await fetch(`http://localhost:5000/api/admin/product-masters/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'REJECTED' })
+      });
+    } catch (e) { }
+  };
+
+  const fetchBackendSkus = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/captain/skus');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.skus)) {
+        setSkus(data.skus);
+      }
+    } catch (e) { }
+  };
+
+  const handleApproveSku = async (id: string, code: string) => {
+    setSkus(prev => prev.map(s => s.id === id ? { ...s, status: 'APPROVED' as const } : s));
+    setNotificationToast(`✅ SKU Master "${code}" APPROVED!`);
+    try {
+      await fetch(`http://localhost:5000/api/admin/skus/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'APPROVED' })
+      });
+    } catch (e) { }
+  };
+
+  const handleRejectSku = async (id: string, code: string) => {
+    setSkus(prev => prev.map(s => s.id === id ? { ...s, status: 'REJECTED' as const } : s));
+    setNotificationToast(`❌ SKU Master "${code}" REJECTED.`);
+    try {
+      await fetch(`http://localhost:5000/api/admin/skus/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'REJECTED' })
+      });
+    } catch (e) { }
+  };
+
   const fetchBackendProducts = async () => {
     try {
-      // 1. Scan ALL LocalStorage keys containing 'field_products' to aggregate all Captain entries
-      let localItems: FieldProduct[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.includes('field_products')) {
-          try {
-            const parsed = JSON.parse(localStorage.getItem(k) || '[]');
-            if (Array.isArray(parsed)) {
-              localItems.push(...parsed);
-            }
-          } catch (e) { }
-        }
-      }
-
-      // 2. Fetch from Backend API
-      let backendFormatted: FieldProduct[] = [];
-      try {
-        const res = await fetch('http://localhost:3000/api/captain/field-products');
-        const data = await res.json();
-        if (data.success && Array.isArray(data.products)) {
-          backendFormatted = data.products.map((p: any) => {
-            const matchedUser = users.find(u => u.id === p.captain_id || u.role === 'CAPTAIN');
-            const resolvedName = (p.captain_name && p.captain_name.trim() && p.captain_name.trim() !== 'Captain')
-              ? p.captain_name.trim()
-              : (matchedUser ? (matchedUser.name || `${matchedUser.firstName} ${matchedUser.lastName}`).trim() : 'Amit Verma');
-
-            return {
-              id: p.id,
-              captainId: p.captain_id,
-              captainName: resolvedName,
-              name: p.name,
-              category: p.category,
-              subCategory: p.sub_category,
-              price: parseFloat(p.price),
-              color: p.color || 'Standard',
-              imageUrl: p.image_url || '',
-              colorImageUrl: p.color_image_url || p.image_url || '',
-              status: p.status || 'PENDING',
-              createdAt: p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : '2026-08-12'
-            };
-          });
-        }
-      } catch (e) {
-        console.error(e);
-      }
-
-      // 3. Unconditionally merge ALL localItems and backendFormatted into mergedMap
-      const mergedMap = new Map<string, FieldProduct>();
-      localItems.forEach(item => {
-        if (item && item.id) {
-          const matchedUser = users.find(u => u.id === item.captainId || u.role === 'CAPTAIN');
-          const finalName = (item.captainName && item.captainName.trim() && item.captainName.trim() !== 'Captain')
-            ? item.captainName.trim()
-            : (matchedUser ? (matchedUser.name || `${matchedUser.firstName} ${matchedUser.lastName}`).trim() : 'Captain');
-          mergedMap.set(item.id, { ...item, captainName: finalName });
-        }
-      });
-      backendFormatted.forEach(item => {
-        if (item && item.id) {
-          const existing = mergedMap.get(item.id);
-          const matchedUser = users.find(u => u.id === item.captainId || u.role === 'CAPTAIN');
-          const finalName = (item.captainName && item.captainName.trim() && item.captainName.trim() !== 'Captain')
-            ? item.captainName.trim()
+      // Fetch directly from PostgreSQL Backend API
+      const res = await fetch('http://localhost:5000/api/captain/field-products');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.products)) {
+        const backendFormatted: FieldProduct[] = data.products.map((p: any) => {
+          const matchedUser = users.find(u => u.id === p.captain_id || u.role === 'CAPTAIN');
+          const resolvedName = (p.captain_name && p.captain_name.trim() && p.captain_name.trim() !== 'Captain')
+            ? p.captain_name.trim()
             : (matchedUser ? (matchedUser.name || `${matchedUser.firstName} ${matchedUser.lastName}`).trim() : 'Captain');
 
-          mergedMap.set(item.id, {
-            ...(existing || {}),
-            ...item,
-            captainName: finalName,
-            status: (existing && existing.status !== 'PENDING') ? existing.status : item.status,
-            imageUrl: item.imageUrl || (existing ? existing.imageUrl : ''),
-            colorImageUrl: item.colorImageUrl || (existing ? existing.colorImageUrl : '')
-          });
-        }
-      });
+          return {
+            id: p.id,
+            captainId: p.captain_id,
+            captainName: resolvedName,
+            companyId: p.company_id,
+            companyName: p.company_name || 'General Company',
+            name: p.name,
+            category: p.category,
+            subCategory: p.sub_category,
+            price: parseFloat(p.price),
+            color: p.color || 'Standard',
+            imageUrl: p.image_url || '',
+            colorImageUrl: p.color_image_url || p.image_url || '',
+            status: p.status || 'PENDING',
+            createdAt: p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : '2026-08-12'
+          };
+        });
 
-      // Remove any temporary seeded items if present
-      mergedMap.delete('PRD-FLD-801');
-
-      const mergedList = Array.from(mergedMap.values());
-      setFieldProducts(mergedList);
-      localStorage.setItem('jaxmart_captain_field_products', JSON.stringify(mergedList));
+        setFieldProducts(backendFormatted);
+      } else {
+        setFieldProducts([]);
+      }
     } catch (e) {
       console.error(e);
+      setFieldProducts([]);
     }
   };
 
@@ -196,7 +279,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     setNotificationToast(`✅ Field Product "${name}" APPROVED successfully!`);
 
     try {
-      await fetch(`http://localhost:3000/api/admin/field-products/${id}/status`, {
+      await fetch(`http://localhost:5000/api/admin/field-products/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'APPROVED' })
@@ -213,7 +296,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     setNotificationToast(`❌ Field Product "${name}" REJECTED.`);
 
     try {
-      await fetch(`http://localhost:3000/api/admin/field-products/${id}/status`, {
+      await fetch(`http://localhost:5000/api/admin/field-products/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'REJECTED' })
@@ -343,155 +426,309 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
 
       </div>
 
-      {/* CAPTAIN FIELD SELLING PRODUCTS APPROVAL & REJECTION TABLE */}
-      {(() => {
-        // Extract unique Captains from field products
-        const captainMap = new Map<string, string>();
-        fieldProducts.forEach(p => {
-          if (p.captainId && p.captainName) {
-            captainMap.set(p.captainId, p.captainName);
-          }
-        });
-        users.filter(u => u.role === 'CAPTAIN').forEach(c => {
-          captainMap.set(c.id, `${c.firstName} ${c.lastName}`.trim());
-        });
-
-        const captainOptions = Array.from(captainMap.entries()).map(([id, name]) => ({ id, name }));
-        const displayProducts = selectedCaptainFilter === 'ALL'
-          ? fieldProducts
-          : fieldProducts.filter(p => p.captainId === selectedCaptainFilter || p.captainName === selectedCaptainFilter);
-
-        return (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card overflow-hidden">
-            <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center space-x-2">
-                <Package className="w-5 h-5 text-jaxmart-primary" />
-                <h2 className="text-base font-bold text-jaxmart-navy">
-                  Captain Field Selling Products Approval ({displayProducts.length})
-                </h2>
-              </div>
-
-              {/* CAPTAIN-WISE FILTER SELECTOR */}
-              <div className="flex items-center space-x-2 bg-jaxmart-bg px-3 py-1.5 rounded-lg border border-gray-200">
-                <span className="text-xs font-semibold text-gray-600 flex items-center space-x-1">
-                  <UserCheck className="w-3.5 h-3.5 text-jaxmart-teal" />
-                  <span>Filter by Captain:</span>
-                </span>
-                <select
-                  value={selectedCaptainFilter}
-                  onChange={e => setSelectedCaptainFilter(e.target.value)}
-                  className="px-2.5 py-1 bg-white border border-gray-300 rounded-md text-xs font-bold text-jaxmart-navy focus:ring-2 focus:ring-jaxmart-primary outline-none cursor-pointer"
-                >
-                  <option value="ALL">All Captains ({fieldProducts.length} Products)</option>
-                  {captainOptions.map(c => {
-                    const count = fieldProducts.filter(p => p.captainId === c.id || p.captainName === c.name).length;
-                    return (
-                      <option key={c.id} value={c.id}>
-                        🎖️ {c.name} ({count} Products)
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-jaxmart-bg text-jaxmart-mediumBlue font-semibold uppercase tracking-wider border-b border-gray-200">
-                    <th className="p-3.5">Main Product Image</th>
-                    <th className="p-3.5">Color Variant Image</th>
-                    <th className="p-3.5">Product Name & ID</th>
-                    <th className="p-3.5">Submitted By Captain</th>
-                    <th className="p-3.5">Category & Sub Category</th>
-                    <th className="p-3.5">Price & Color</th>
-                    <th className="p-3.5">Approval Status</th>
-                    <th className="p-3.5 text-right">Admin Review Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {displayProducts.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-gray-400">
-                        {selectedCaptainFilter === 'ALL'
-                          ? 'No field products submitted by Captains yet.'
-                          : `No field products submitted by selected Captain.`}
-                      </td>
-                    </tr>
-                  ) : (
-                    displayProducts.map(p => (
-                      <tr key={p.id} className="hover:bg-jaxmart-bg/50 transition-colors">
-                        <td className="p-3.5">
-                          {p.imageUrl ? (
-                            <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-lg object-cover border shadow-sm bg-white" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg border border-dashed border-gray-300 flex items-center justify-center bg-gray-50 text-[10px] text-gray-400 font-semibold">No Photo</div>
-                          )}
-                        </td>
-                        <td className="p-3.5">
-                          {p.colorImageUrl ? (
-                            <img src={p.colorImageUrl} alt={p.color} className="w-12 h-12 rounded-lg object-cover border border-purple-200 shadow-sm bg-white" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg border border-dashed border-purple-200 flex items-center justify-center bg-purple-50 text-[10px] text-purple-400 font-semibold">No Photo</div>
-                          )}
-                        </td>
-                        <td className="p-3.5 font-bold text-jaxmart-navy">
-                          <div>{p.name}</div>
-                          <div className="text-[10px] font-mono text-gray-400">ID: {p.id}</div>
-                        </td>
-                        <td className="p-3.5 font-semibold text-gray-700">
-                          <div className="flex items-center space-x-1.5 bg-teal-50 px-2 py-1 rounded border border-teal-200 w-fit">
-                            <UserCheck className="w-3.5 h-3.5 text-jaxmart-teal" />
-                            <span className="font-bold text-jaxmart-navy">{(p.captainName && p.captainName.trim() !== 'Captain') ? p.captainName : 'Amit Verma'}</span>
-                          </div>
-                        </td>
-                        <td className="p-3.5">
-                          <span className="font-semibold text-jaxmart-primary block">{p.category}</span>
-                          <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{p.subCategory}</span>
-                        </td>
-                        <td className="p-3.5">
-                          <div className="font-black text-jaxmart-navy text-sm">₹{p.price.toLocaleString('en-IN')}</div>
-                          <span className="text-[10px] text-purple-700 font-semibold">🎨 {p.color}</span>
-                        </td>
-                        <td className="p-3.5">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
-                            p.status === 'REJECTED' ? 'bg-red-100 text-jaxmart-error' :
-                              'bg-amber-100 text-amber-800'
-                            }`}>
-                            {p.status}
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-right">
-                          <div className="flex items-center justify-end space-x-2">
-                            {p.status !== 'APPROVED' && (
-                              <button
-                                onClick={() => handleApproveProduct(p.id, p.name)}
-                                className="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded text-xs font-bold shadow-sm transition-all flex items-center space-x-1"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                                <span>✓ Approve</span>
-                              </button>
-                            )}
-                            {p.status !== 'REJECTED' && (
-                              <button
-                                onClick={() => handleRejectProduct(p.id, p.name)}
-                                className="px-3 py-1.5 bg-red-50 text-jaxmart-error border border-red-200 hover:bg-red-100 rounded text-xs font-bold transition-all flex items-center space-x-1"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                                <span>✗ Reject</span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+      {/* CAPTAIN COMPANY ONBOARDING APPROVALS TABLE */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card overflow-hidden">
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="w-5 h-5 text-jaxmart-teal" />
+            <h2 className="text-base font-bold text-jaxmart-navy">
+              Captain Company Onboarding Approvals ({companies.length})
+            </h2>
           </div>
-        );
-      })()}
+          <span className="text-xs text-gray-500 font-medium">
+            Approve Companies so Captains can add products under them
+          </span>
+        </div>
+
+        {companies.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <Clock className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+            <p className="font-semibold text-sm">No Companies Onboarded Yet</p>
+            <p className="text-xs text-gray-400 mt-1">When Captains onboard a company, it will appear here for Admin approval.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                  <th className="py-3 px-4">Company Details</th>
+                  <th className="py-3 px-4">Owner / Contact</th>
+                  <th className="py-3 px-4">GSTIN & City</th>
+                  <th className="py-3 px-4">Selling Categories</th>
+                  <th className="py-3 px-4">Captain</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-xs">
+                {companies.map(c => (
+                  <tr key={c.id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-jaxmart-navy">
+                      <div>{c.companyName}</div>
+                      <div className="text-[10px] text-gray-400 font-mono">ID: {c.id}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-gray-700">
+                      <div className="font-semibold">{c.ownerName || 'N/A'}</div>
+                      <div className="text-[11px] text-gray-500">{c.mobile || c.email}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-gray-700 font-mono text-[11px]">
+                      <div>GST: {c.gstin || 'N/A'}</div>
+                      <div className="text-gray-500 font-sans">{c.city}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-gray-600 font-medium">
+                      {c.sellingCategories}
+                    </td>
+                    <td className="py-3.5 px-4 text-gray-800 font-medium">
+                      {c.captainName}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                        c.status === 'APPROVED'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : c.status === 'REJECTED'
+                          ? 'bg-red-100 text-red-800 border border-red-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end space-x-1.5">
+                        <button
+                          onClick={() => setViewCompanyId(c.id)}
+                          className="px-2.5 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-lg font-bold text-[11px] flex items-center space-x-1 transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-jaxmart-blue" />
+                          <span>View Master</span>
+                        </button>
+                        {c.status === 'PENDING' && (
+                          <>
+                            <button
+                              onClick={() => handleApproveCompany(c.id, c.companyName)}
+                              className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[11px] hover:bg-emerald-700 flex items-center space-x-1 shadow-sm"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              onClick={() => handleRejectCompany(c.id, c.companyName)}
+                              className="px-2.5 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-[11px] hover:bg-red-100 flex items-center space-x-1"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* CAPTAIN PRODUCT MASTER APPROVALS TABLE */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <div className="flex items-center space-x-2">
+            <Layers className="w-5 h-5 text-jaxmart-blue" />
+            <h2 className="text-base font-bold text-jaxmart-navy">
+              Captain Product Master Approvals ({productMasters.length})
+            </h2>
+          </div>
+          <span className="text-xs text-gray-500 font-medium">
+            Approve Product Families (Product ≠ SKU) so Captains can onboard SKUs under them
+          </span>
+        </div>
+
+        {productMasters.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <Clock className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+            <p className="font-semibold text-sm">No Product Masters Submitted Yet</p>
+            <p className="text-xs text-gray-400 mt-1">When Captains create a Product Family under an approved company, it will appear here for Admin review.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <th className="py-3 px-4">Product Family</th>
+                  <th className="py-3 px-4">Company</th>
+                  <th className="py-3 px-4">Category & Type</th>
+                  <th className="py-3 px-4">Base UOM & Industry</th>
+                  <th className="py-3 px-4">Captain</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {productMasters.map(pm => (
+                  <tr key={pm.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-jaxmart-navy">
+                      <div className="flex items-center gap-1.5">
+                        <Package className="w-4 h-4 text-jaxmart-blue" />
+                        <span>{pm.productName}</span>
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-mono">ID: {pm.id}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-800 font-semibold">
+                      {pm.companyName}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-700">
+                      <div className="font-bold">{pm.category}</div>
+                      <div className="text-[11px] text-slate-500">{pm.subCategory} ({pm.productType || 'Standard'})</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-700">
+                      <span className="px-2 py-0.5 rounded bg-blue-50 text-jaxmart-blue font-bold text-[11px] mr-2">{pm.baseUom}</span>
+                      <span className="text-[11px] text-slate-500">{pm.industry}</span>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-800 font-medium">
+                      {pm.captainName}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                        pm.status === 'APPROVED'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : pm.status === 'REJECTED'
+                          ? 'bg-red-100 text-red-800 border border-red-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
+                        {pm.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      {pm.status === 'PENDING' ? (
+                        <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            onClick={() => handleApproveProductMaster(pm.id, pm.productName)}
+                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[11px] hover:bg-emerald-700 flex items-center space-x-1 shadow-sm"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectProductMaster(pm.id, pm.productName)}
+                            className="px-2.5 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-[11px] hover:bg-red-100 flex items-center space-x-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-gray-400 italic">Action Taken</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* CAPTAIN SKU MASTER APPROVALS TABLE */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <div className="flex items-center space-x-2">
+            <Tag className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-base font-bold text-jaxmart-navy">
+              Captain SKU Master Approvals ({skus.length})
+            </h2>
+          </div>
+          <span className="text-xs text-gray-500 font-medium">
+            Inspect technical specifications (Grade, Finish, Dimensions, Weight) & approve sellable SKUs
+          </span>
+        </div>
+
+        {skus.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <Clock className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+            <p className="font-semibold text-sm">No SKU Masters Submitted Yet</p>
+            <p className="text-xs text-gray-400 mt-1">When Captains onboard sellable SKU variants, they will appear here for Admin technical review.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <th className="py-3 px-4">SKU Code & ID</th>
+                  <th className="py-3 px-4">Product Family & Manufacturer</th>
+                  <th className="py-3 px-4">Grade & Finish</th>
+                  <th className="py-3 px-4">Dimensions & Weight</th>
+                  <th className="py-3 px-4">Price (₹)</th>
+                  <th className="py-3 px-4">Captain</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {skus.map(s => (
+                  <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-jaxmart-navy">
+                      <div className="font-mono text-indigo-950 font-black text-sm">{s.skuCode}</div>
+                      <div className="text-[10px] text-gray-400 font-mono">ID: {s.id}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-800 font-semibold">
+                      <div>📦 {s.productName}</div>
+                      <div className="text-[11px] text-slate-500 font-normal">🏢 {s.companyName}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-700">
+                      <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-extrabold text-[11px] mr-1 border border-indigo-100">{s.gradeCode}</span>
+                      <span className="text-[11px] text-slate-600 font-medium">Finish: {s.finishId}</span>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-700 text-[11px]">
+                      <div>Size: <strong>{s.width}x{s.length} {s.widthUom}</strong> | Thick: <strong>{s.thickness} {s.thicknessUom}</strong></div>
+                      <div>Weight: <strong>{s.weight} {s.weightUom}</strong> | Standard: <strong>{s.standardId}</strong></div>
+                    </td>
+                    <td className="py-3.5 px-4 font-black text-emerald-700 text-sm">
+                      ₹{s.price ? s.price.toLocaleString('en-IN') : 0}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-800 font-medium">
+                      {s.captainName}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                        s.status === 'APPROVED'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : s.status === 'REJECTED'
+                          ? 'bg-red-100 text-red-800 border border-red-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
+                        {s.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      {s.status === 'PENDING' ? (
+                        <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            onClick={() => handleApproveSku(s.id, s.skuCode)}
+                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[11px] hover:bg-emerald-700 flex items-center space-x-1 shadow-sm"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectSku(s.id, s.skuCode)}
+                            className="px-2.5 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-[11px] hover:bg-red-100 flex items-center space-x-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-gray-400 italic">Action Taken</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
 
       {/* ADD CAPTAIN MODAL */}
       {showAddCaptainModal && (
@@ -590,6 +827,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
           </div>
         </div>
       )}
+
+      {/* MASTER COMPANY DETAIL VIEWER MODAL FOR ADMIN */}
+      <CompanyDetailViewModal
+        isOpen={!!viewCompanyId}
+        companyId={viewCompanyId}
+        onClose={() => setViewCompanyId(null)}
+        isAdmin={true}
+        onApprove={(id) => {
+          const target = companies.find(c => c.id === id);
+          handleApproveCompany(id, target?.companyName || 'Company');
+        }}
+        onReject={(id) => {
+          const target = companies.find(c => c.id === id);
+          handleRejectCompany(id, target?.companyName || 'Company');
+        }}
+      />
 
     </div>
   );

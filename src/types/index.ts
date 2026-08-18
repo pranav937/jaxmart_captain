@@ -168,3 +168,156 @@ export interface SystemSetting {
   allowGuestCheckout: boolean;
 }
 
+export interface CompanyAddress {
+  id?: string;
+  companyId?: string;
+  addressType: 'Registered' | 'Factory' | 'Warehouse' | 'Billing' | 'Shipping';
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  country: string;
+  isPrimary?: boolean;
+}
+
+export interface CompanyContact {
+  id?: string;
+  companyId?: string;
+  name: string;
+  designation: string;
+  phone: string;
+  email: string;
+  isPrimary?: boolean;
+}
+
+export interface CompanyDocument {
+  id?: string;
+  companyId?: string;
+  docType: 'GST Certificate' | 'PAN Card' | 'MSME Registration' | 'Cancelled Cheque' | 'Incorporation Certificate' | 'Other';
+  docNumber: string;
+  fileUrl?: string;
+  status?: 'PENDING' | 'VERIFIED' | 'REJECTED';
+}
+
+export interface CompanyBankAccount {
+  id?: string;
+  companyId?: string;
+  accountName: string;
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  branch: string;
+  accountType: 'Savings' | 'Current' | 'Overdraft';
+  isPrimary?: boolean;
+}
+
+export interface CompanyCertification {
+  id?: string;
+  companyId?: string;
+  certName: string;
+  certNumber: string;
+  issuingAuthority: string;
+  validTill: string;
+}
+
+export interface OnboardedCompany {
+  id: string;
+  captainId: string;
+  captainName?: string;
+  companyName: string;
+  legalName?: string;
+  companyType?: string;
+  brandName?: string;
+  registrationNo?: string;
+  gstin?: string;
+  pan?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  address?: string;
+  website?: string;
+  contactPerson?: string;
+  ownerName?: string;
+  phone?: string;
+  mobile?: string;
+  email?: string;
+  paymentTerms?: string;
+  creditLimit?: string;
+  rating?: string;
+  sellingCategories?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'INACTIVE';
+  createdAt: string;
+  addresses?: CompanyAddress[];
+  contacts?: CompanyContact[];
+  documents?: CompanyDocument[];
+  bankAccounts?: CompanyBankAccount[];
+  certifications?: CompanyCertification[];
+}
+
+export interface ProductMaster {
+  id: string;
+  companyId: string;
+  companyName?: string;
+  captainId?: string;
+  captainName?: string;
+  productName: string;
+  category: string;
+  subCategory: string;
+  productType: string;
+  description: string;
+  baseUom: 'KG' | 'PCS' | 'MTR' | 'TON' | 'LTR' | 'BOX' | 'SQFT' | string;
+  industry: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'INACTIVE';
+  createdAt: string;
+  skusCount?: number;
+}
+
+export interface GradeMaster {
+  id: string;
+  gradeCode: string;
+  gradeName: string;
+  standard: string;
+  standardGrade: string;
+  uns?: string;
+  en?: string;
+  din?: string;
+  chemicalComposition?: Record<string, string | number>;
+  mechanicalProperties?: Record<string, string | number>;
+  hardness?: string;
+  tensileStrength?: string;
+  yieldStrength?: string;
+  createdAt?: string;
+}
+
+export interface SkuMaster {
+  id: string;
+  skuCode: string;
+  productId: string;
+  productName?: string;
+  manufacturerId: string;
+  companyName?: string;
+  captainId?: string;
+  captainName?: string;
+  brandId?: string;
+  gradeId?: string;
+  gradeCode?: string;
+  finishId?: string;
+  thickness?: number;
+  thicknessUom?: string;
+  width?: number;
+  widthUom?: string;
+  length?: number;
+  lengthUom?: string;
+  weight?: number;
+  weightUom?: string;
+  colorId?: string;
+  standardId?: string;
+  countryOfOrigin?: string;
+  price?: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'INACTIVE';
+  createdAt: string;
+}
+
+
+

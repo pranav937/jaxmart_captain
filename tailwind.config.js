@@ -11,6 +11,7 @@ export default {
           primary: '#232F72',
           navy: '#121358',
           teal: '#36ADA3',
+          blue: '#2563EB',
           mediumBlue: '#2F578A',
           bg: '#F6F8FB',
           border: '#7B8C9F',

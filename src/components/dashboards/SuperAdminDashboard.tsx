@@ -117,7 +117,7 @@ export const SuperAdminDashboard: React.FC<DashboardProps> = ({ onNavigateTab })
 
     let backendProducts: FieldProduct[] = [];
     try {
-      const res = await fetch('http://localhost:3000/api/captain/field-products');
+      const res = await fetch('http://localhost:5000/api/captain/field-products');
       const data = await res.json();
       if (data.success && Array.isArray(data.products)) {
         backendProducts = data.products.map((p: any) => {
@@ -172,7 +172,7 @@ export const SuperAdminDashboard: React.FC<DashboardProps> = ({ onNavigateTab })
 
     let backendAttendance: AttendanceRecord[] = [];
     try {
-      const res = await fetch('http://localhost:3000/api/captain/attendance');
+      const res = await fetch('http://localhost:5000/api/captain/attendance');
       const data = await res.json();
       if (data.success && Array.isArray(data.attendance)) {
         backendAttendance = data.attendance.map((a: any) => {
@@ -235,7 +235,7 @@ export const SuperAdminDashboard: React.FC<DashboardProps> = ({ onNavigateTab })
     setNotificationToast(`✅ Field Product "${name}" APPROVED by Super Admin!`);
 
     try {
-      await fetch(`http://localhost:3000/api/admin/field-products/${id}/approve`, {
+      await fetch(`http://localhost:5000/api/admin/field-products/${id}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'APPROVED' })
@@ -251,7 +251,7 @@ export const SuperAdminDashboard: React.FC<DashboardProps> = ({ onNavigateTab })
     setNotificationToast(`❌ Field Product "${name}" REJECTED.`);
 
     try {
-      await fetch(`http://localhost:3000/api/admin/field-products/${id}/reject`, {
+      await fetch(`http://localhost:5000/api/admin/field-products/${id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'REJECTED' })

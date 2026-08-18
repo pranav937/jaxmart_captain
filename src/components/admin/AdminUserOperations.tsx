@@ -65,7 +65,7 @@ export const AdminUserOperations: React.FC = () => {
 
   // Navigation Tabs
   const [subTab, setSubTab] = useState<'ACCOUNTS' | 'ATTENDANCE' | 'PRODUCTS'>('ACCOUNTS');
-  const [activeTab, setActiveTab] = useState<'CAPTAIN' | 'SELLER' | 'CUSTOMER'>('CAPTAIN');
+  const [activeTab, setActiveTab] = useState<'CAPTAIN'>('CAPTAIN');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCaptainIdFilter, setSelectedCaptainIdFilter] = useState<string>('ALL');
 
@@ -116,7 +116,7 @@ export const AdminUserOperations: React.FC = () => {
 
     let backendAttendance: AttendanceRecord[] = [];
     try {
-      const res = await fetch('http://localhost:3000/api/captain/attendance');
+      const res = await fetch('http://localhost:5000/api/captain/attendance');
       const data = await res.json();
       if (data.success && Array.isArray(data.attendance)) {
         backendAttendance = data.attendance.map((a: any) => {
@@ -173,7 +173,7 @@ export const AdminUserOperations: React.FC = () => {
 
     let backendProducts: FieldProduct[] = [];
     try {
-      const res = await fetch('http://localhost:3000/api/captain/field-products');
+      const res = await fetch('http://localhost:5000/api/captain/field-products');
       const data = await res.json();
       if (data.success && Array.isArray(data.products)) {
         backendProducts = data.products.map((p: any) => {
@@ -827,80 +827,6 @@ export const AdminUserOperations: React.FC = () => {
             </div>
           </div>
 
-          {/* Products Added Table */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-jaxmart-bg/50">
-              <h2 className="text-sm font-bold text-jaxmart-navy flex items-center space-x-2">
-                <Package className="w-4 h-4 text-jaxmart-teal" />
-                <span>Detailed List of Products Added by Captains for Selling</span>
-              </h2>
-              <span className="text-[11px] text-gray-500">PostgreSQL `captain_field_products` Synced</span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-gray-50 text-jaxmart-navy font-bold uppercase tracking-wider border-b border-gray-200">
-                  <tr>
-                    <th className="p-3">Product Details</th>
-                    <th className="p-3">Added By Captain</th>
-                    <th className="p-3">Category & Variant</th>
-                    <th className="p-3">Selling Price (₹)</th>
-                    <th className="p-3">Approval Status</th>
-                    <th className="p-3">Date Added</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {filteredFieldProducts.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center text-gray-400">
-                        No products added for selling found matching search filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredFieldProducts.map(product => (
-                      <tr key={product.id} className="hover:bg-gray-50/80 transition-colors">
-                        <td className="p-3">
-                          <div className="flex items-center space-x-3">
-                            <img src={product.imageUrl} alt={product.name} className="w-10 h-10 rounded-lg object-cover border border-gray-200 flex-shrink-0" />
-                            <div>
-                              <div className="font-bold text-jaxmart-navy">{product.name}</div>
-                              <div className="text-[10px] text-gray-400">ID: {product.id}</div>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="p-3">
-                          <div className="font-bold text-jaxmart-teal">{(product.captainName && product.captainName.trim() !== 'Captain') ? product.captainName : 'Amit Verma'}</div>
-                          <div className="text-[10px] text-gray-400">ID: {product.captainId}</div>
-                        </td>
-
-                        <td className="p-3">
-                          <div className="font-medium text-gray-700">{product.category} • {product.subCategory}</div>
-                          <div className="text-[11px] text-gray-500">Color: {product.color}</div>
-                        </td>
-
-                        <td className="p-3 font-bold text-emerald-700 text-sm">
-                          ₹{product.price.toLocaleString('en-IN')}
-                        </td>
-
-                        <td className="p-3">
-                          <span className={`px-2.5 py-1 rounded-full font-bold text-[10px] inline-flex items-center space-x-1 ${product.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
-                            product.status === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
-                            }`}>
-                            <span>{product.status}</span>
-                          </span>
-                        </td>
-
-                        <td className="p-3 text-gray-500">
-                          {product.createdAt}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       )}
 

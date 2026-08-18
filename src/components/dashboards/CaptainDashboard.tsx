@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { OnboardedCompany, ProductMaster, SkuMaster, GradeMaster } from '../../types';
+import { CompanyMasterModal } from '../captain/CompanyMasterModal';
+import { CompanyDetailViewModal } from '../captain/CompanyDetailViewModal';
+import { ProductMasterModal } from '../captain/ProductMasterModal';
+import { SkuMasterModal } from '../captain/SkuMasterModal';
+import { GradeMasterModal } from '../captain/GradeMasterModal';
 import {
   MapPin,
   Clock,
@@ -19,7 +25,13 @@ import {
   Palette,
   Plus,
   ShoppingBag,
-  DollarSign
+  DollarSign,
+  Layers,
+  X,
+  Check,
+  Eye,
+  Scale,
+  Maximize2
 } from 'lucide-react';
 
 interface AttendanceRecord {
@@ -39,6 +51,8 @@ interface FieldProduct {
   id: string;
   captainId: string;
   captainName?: string;
+  companyId?: string;
+  companyName?: string;
   name: string;
   category: string;
   subCategory: string;
@@ -49,6 +63,7 @@ interface FieldProduct {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: string;
 }
+
 
 const mockInitialAttendance: AttendanceRecord[] = [];
 
@@ -70,53 +85,37 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [loadingGps, setLoadingGps] = useState(false);
 
-  // Attendance Records State - Hydrate strictly by currentUser.id for 100% data isolation
-  const [records, setRecords] = useState<AttendanceRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem(`jaxmart_captain_attendance_${currentUser.id}`);
-      if (saved) {
-        const list: AttendanceRecord[] = JSON.parse(saved);
-        return list.filter(r => r.captainId === currentUser.id);
-      }
-      // Migration fallback from global key
-      const globalSaved = localStorage.getItem('jaxmart_captain_attendance');
-      if (globalSaved) {
-        const list: AttendanceRecord[] = JSON.parse(globalSaved);
-        return list.filter(r => r.captainId === currentUser.id);
-      }
-    } catch (e) { }
-    return [];
-  });
-  const [activeSession, setActiveSession] = useState<AttendanceRecord | null>(() => {
-    try {
-      const saved = localStorage.getItem(`jaxmart_captain_attendance_${currentUser.id}`);
-      if (saved) {
-        const list: AttendanceRecord[] = JSON.parse(saved);
-        const open = list.find(a => a.captainId === currentUser.id && a.date === todayStr && a.status === 'PUNCHED_IN');
-        return open || null;
-      }
-    } catch (e) { }
-    return null;
-  });
+  // Attendance Records State
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [activeSession, setActiveSession] = useState<AttendanceRecord | null>(null);
 
-  // Field Products State - Hydrate strictly by currentUser.id for 100% data isolation
-  const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>(() => {
-    try {
-      const saved = localStorage.getItem(`jaxmart_captain_field_products_${currentUser.id}`);
-      if (saved) {
-        const list: FieldProduct[] = JSON.parse(saved);
-        return list.filter(p => p.captainId === currentUser.id);
-      }
-      // Migration fallback from global key
-      const globalSaved = localStorage.getItem('jaxmart_captain_field_products');
-      if (globalSaved) {
-        const list: FieldProduct[] = JSON.parse(globalSaved);
-        return list.filter(p => p.captainId === currentUser.id);
-      }
-    } catch (e) { }
-    return [];
-  });
+  // Field Products State
+  const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>([]);
   const [submittingProduct, setSubmittingProduct] = useState(false);
+
+  // Company, Product Master & SKU Master State
+  const [companies, setCompanies] = useState<OnboardedCompany[]>([]);
+  const [productMasters, setProductMasters] = useState<ProductMaster[]>([]);
+  const [skus, setSkus] = useState<SkuMaster[]>([]);
+  const [grades, setGrades] = useState<GradeMaster[]>([]);
+
+  const [showOnboardModal, setShowOnboardModal] = useState(false);
+  const [showMasterOnboardModal, setShowMasterOnboardModal] = useState<boolean>(false);
+  const [showProductMasterModal, setShowProductMasterModal] = useState<boolean>(false);
+  const [showSkuMasterModal, setShowSkuMasterModal] = useState<boolean>(false);
+  const [showGradeMasterModal, setShowGradeMasterModal] = useState<boolean>(false);
+
+  const [viewCompanyId, setViewCompanyId] = useState<string | null>(null);
+  const [cmpName, setCmpName] = useState('');
+  const [cmpOwner, setCmpOwner] = useState('');
+  const [cmpGstin, setCmpGstin] = useState('');
+  const [cmpMobile, setCmpMobile] = useState('');
+  const [cmpCity, setCmpCity] = useState('Surat');
+  const [cmpCategories, setCmpCategories] = useState('Industrial Hardware, Power Tools');
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [selectedCompanyForPm, setSelectedCompanyForPm] = useState<string | undefined>(undefined);
+  const [selectedProductForSku, setSelectedProductForSku] = useState<string | undefined>(undefined);
+  const [selectedProductMasterId, setSelectedProductMasterId] = useState('');
 
   // Selling Product Form State
   const [prdName, setPrdName] = useState('');
@@ -165,13 +164,27 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
     detectGpsLocation();
     fetchBackendAttendance();
     fetchBackendFieldProducts();
+    fetchBackendCompanies();
+    fetchBackendProductMasters();
+    fetchBackendGrades();
+    fetchBackendSkus();
 
     // Polling interval every 3 seconds for live Admin Approval status sync
     const interval = setInterval(() => {
       fetchBackendFieldProducts();
+      fetchBackendCompanies();
+      fetchBackendProductMasters();
+      fetchBackendGrades();
+      fetchBackendSkus();
     }, 3000);
 
-    const onFocus = () => fetchBackendFieldProducts();
+    const onFocus = () => {
+      fetchBackendFieldProducts();
+      fetchBackendCompanies();
+      fetchBackendProductMasters();
+      fetchBackendGrades();
+      fetchBackendSkus();
+    };
     window.addEventListener('focus', onFocus);
 
     return () => {
@@ -180,12 +193,122 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
     };
   }, []);
 
+  const fetchBackendCompanies = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/captain/companies`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.companies)) {
+          const formatted: OnboardedCompany[] = data.companies.map((c: any) => ({
+            id: c.id,
+            captainId: c.captain_id,
+            captainName: c.captain_name || currentUser.name,
+            companyName: c.company_name,
+            ownerName: c.owner_name || '',
+            gstin: c.gstin || '',
+            mobile: c.mobile || '',
+            email: c.email || '',
+            city: c.city || 'Surat',
+            sellingCategories: c.selling_categories || 'General',
+            status: c.status || 'PENDING',
+            createdAt: c.created_at ? new Date(c.created_at).toISOString().split('T')[0] : todayStr
+          }));
+          setCompanies(formatted);
+        }
+      }
+    } catch (e) { }
+  };
+
+  const fetchBackendProductMasters = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/captain/product-masters?captainId=${currentUser.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.productMasters)) {
+          setProductMasters(data.productMasters);
+        }
+      }
+    } catch (e) { }
+  };
+
+  const fetchBackendGrades = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/grades');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.grades)) {
+          setGrades(data.grades);
+        }
+      }
+    } catch (e) { }
+  };
+
+  const fetchBackendSkus = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/captain/skus?captainId=${currentUser.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.skus)) {
+          setSkus(data.skus);
+        }
+      }
+    } catch (e) { }
+  };
+
+  const handleOnboardCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cmpName) return;
+
+    const tempCompany: OnboardedCompany = {
+      id: `CMP-${Math.floor(100 + Math.random() * 900)}`,
+      captainId: currentUser?.id || 'USR-CAP-201',
+      captainName: currentUser?.name || 'Captain',
+      companyName: cmpName.trim(),
+      ownerName: cmpOwner,
+      gstin: cmpGstin,
+      mobile: cmpMobile,
+      email: '',
+      city: cmpCity || 'Surat',
+      sellingCategories: cmpCategories || 'General',
+      status: 'PENDING',
+      createdAt: todayStr
+    };
+
+    // Optimistically update UI immediately
+    setCompanies(prev => [tempCompany, ...prev]);
+    setNotificationToast(`🏢 Company "${cmpName}" onboarded & sent for Admin Approval!`);
+    setShowOnboardModal(false);
+    setCmpName('');
+    setCmpOwner('');
+    setCmpGstin('');
+    setCmpMobile('');
+
+    try {
+      await fetch('http://localhost:5000/api/captain/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          captainId: currentUser?.id || 'USR-CAP-201',
+          companyName: tempCompany.companyName,
+          ownerName: cmpOwner,
+          gstin: cmpGstin,
+          mobile: cmpMobile,
+          city: cmpCity,
+          sellingCategories: cmpCategories
+        })
+      });
+      fetchBackendCompanies();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchBackendAttendance = async () => {
     try {
       const savedLocal = localStorage.getItem(`jaxmart_captain_attendance_${currentUser.id}`);
       let localRecs: AttendanceRecord[] = savedLocal ? JSON.parse(savedLocal) : [];
 
-      const res = await fetch(`http://localhost:3000/api/captain/attendance?captainId=${currentUser.id}`);
+      const res = await fetch(`http://localhost:5000/api/captain/attendance?captainId=${currentUser.id}`);
       const data = await res.json();
       if (data.success && Array.isArray(data.attendance) && data.attendance.length > 0) {
         const backendFormatted: AttendanceRecord[] = data.attendance.map((r: any) => ({
@@ -223,64 +346,37 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
 
   const fetchBackendFieldProducts = async () => {
     try {
-      // 1. LocalStorage baseline
-      const savedLocal = localStorage.getItem(`jaxmart_captain_field_products_${currentUser.id}`);
-      let localItems: FieldProduct[] = savedLocal ? JSON.parse(savedLocal) : [];
+      // Fetch directly from PostgreSQL Backend API
+      const res = await fetch(`http://localhost:5000/api/captain/field-products?captainId=${currentUser.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.products)) {
+          const backendFormatted: FieldProduct[] = data.products.map((p: any) => ({
+            id: p.id,
+            captainId: p.captain_id,
+            companyId: p.company_id,
+            companyName: p.company_name,
+            name: p.name,
+            category: p.category,
+            subCategory: p.sub_category,
+            price: parseFloat(p.price),
+            color: p.color || 'Standard',
+            imageUrl: p.image_url || '',
+            colorImageUrl: p.color_image_url || p.image_url || '',
+            status: p.status || 'PENDING',
+            createdAt: p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : todayStr
+          })).filter((p: FieldProduct) => p.captainId === currentUser.id);
 
-      // 2. Global LocalStorage fallback
-      try {
-        const globalSaved = localStorage.getItem('jaxmart_captain_field_products');
-        if (globalSaved) {
-          const globalList: FieldProduct[] = JSON.parse(globalSaved);
-          if (Array.isArray(globalList)) {
-            globalList.forEach(item => {
-              if (item && item.captainId === currentUser.id && !localItems.some(l => l.id === item.id)) {
-                localItems.push(item);
-              }
-            });
-          }
+          setFieldProducts(backendFormatted);
+        } else {
+          setFieldProducts([]);
         }
-      } catch (e) { }
-
-      // 3. Backend API
-      let backendFormatted: FieldProduct[] = [];
-      try {
-        const res = await fetch(`http://localhost:3000/api/captain/field-products?captainId=${currentUser.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && Array.isArray(data.products)) {
-            backendFormatted = data.products.map((p: any) => ({
-              id: p.id,
-              captainId: p.captain_id,
-              name: p.name,
-              category: p.category,
-              subCategory: p.sub_category,
-              price: parseFloat(p.price),
-              color: p.color || 'Standard',
-              imageUrl: p.image_url || '',
-              colorImageUrl: p.color_image_url || p.image_url || '',
-              status: p.status || 'PENDING',
-              createdAt: p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : todayStr
-            })).filter((p: FieldProduct) => p.captainId === currentUser.id);
-          }
-        }
-      } catch (e) { }
-
-      // 4. Merge Local items + Backend items safely (Backend fresh photos take priority)
-      const mergedMap = new Map<string, FieldProduct>();
-      localItems.forEach(item => { if (item && item.id) mergedMap.set(item.id, item); });
-      backendFormatted.forEach(item => {
-        if (item && item.id) {
-          const existing = mergedMap.get(item.id);
-          mergedMap.set(item.id, { ...(existing || {}), ...item });
-        }
-      });
-
-      const mergedList = Array.from(mergedMap.values());
-      setFieldProducts(mergedList);
-      localStorage.setItem(`jaxmart_captain_field_products_${currentUser.id}`, JSON.stringify(mergedList));
+      } else {
+        setFieldProducts([]);
+      }
     } catch (e) {
       console.error(e);
+      setFieldProducts([]);
     }
   };
 
@@ -307,7 +403,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
     setNotificationToast(`📍 Punched In Successfully at ${timeStr}! Selling Product Collection Form is now unlocked.`);
 
     try {
-      await fetch('http://localhost:3000/api/captain/punch-in', {
+      await fetch('http://localhost:5000/api/captain/punch-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ captainId: currentUser.id, location: gpsLocation })
@@ -348,7 +444,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
     setNotificationToast(`🏁 Punched Out Successfully at ${timeStr}. Real Shift Duration: ${duration}`);
 
     try {
-      await fetch('http://localhost:3000/api/captain/punch-out', {
+      await fetch('http://localhost:5000/api/captain/punch-out', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: activeSession.id, location: gpsLocation, totalHours: duration })
@@ -389,6 +485,12 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
       return;
     }
 
+    const targetCmp = companies.find(c => c.id === selectedCompanyId);
+    if (!targetCmp) {
+      alert('❌ Please select an Approved Target Company first before submitting a product.');
+      return;
+    }
+
     setSubmittingProduct(true);
 
     try {
@@ -398,6 +500,8 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
         id: `FPRD-${Math.floor(100 + Math.random() * 900)}`,
         captainId: currentUser.id,
         captainName: captainFullName,
+        companyId: targetCmp.id,
+        companyName: targetCmp.companyName,
         name: prdName.trim(),
         category: prdCategory,
         subCategory: prdSubCategory,
@@ -426,26 +530,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
       // 1. Update React State instantly
       setFieldProducts(prev => [newPrd, ...prev.filter(p => p.id !== newPrd.id)]);
 
-      // 2. Safe LocalStorage save with try/catch
-      try {
-        const savedLocal = localStorage.getItem(`jaxmart_captain_field_products_${currentUser.id}`);
-        const localList: FieldProduct[] = savedLocal ? JSON.parse(savedLocal) : [];
-        const updatedLocal = [lightweightPrd, ...localList.filter(p => p.id !== newPrd.id)];
-        localStorage.setItem(`jaxmart_captain_field_products_${currentUser.id}`, JSON.stringify(updatedLocal));
-      } catch (err) {
-        console.warn('LocalStorage quota warning:', err);
-      }
-
-      try {
-        const globalSaved = localStorage.getItem('jaxmart_captain_field_products');
-        const globalList: FieldProduct[] = globalSaved ? JSON.parse(globalSaved) : [];
-        const mergedGlobal = [lightweightPrd, ...globalList.filter(p => p.id !== newPrd.id)];
-        localStorage.setItem('jaxmart_captain_field_products', JSON.stringify(mergedGlobal));
-      } catch (err) {
-        console.warn('Global LocalStorage quota warning:', err);
-      }
-
-      setNotificationToast(`✅ Field Product "${prdName}" submitted! Status: PENDING (Awaiting Admin Approval)`);
+      setNotificationToast(`✅ Field Product "${prdName}" submitted under company "${targetCmp.companyName}"! Status: PENDING (Awaiting Admin Approval)`);
 
       // Reset Form Inputs
       setPrdName('');
@@ -458,13 +543,15 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-        await fetch('http://localhost:3000/api/captain/field-products', {
+        await fetch('http://localhost:5000/api/captain/field-products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: controller.signal,
           body: JSON.stringify({
             id: newPrd.id,
             captainId: currentUser.id,
+            companyId: targetCmp.id,
+            companyName: targetCmp.companyName,
             name: newPrd.name,
             category: newPrd.category,
             subCategory: newPrd.subCategory,
@@ -507,27 +594,26 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
           <div className="flex items-center space-x-2">
             <span className="bg-teal-100 text-teal-800 text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-teal-200 flex items-center space-x-1">
               <Sparkles className="w-3.5 h-3.5 text-jaxmart-teal mr-1" />
-              <span>Captain GPS Attendance & Field Product Collection Portal</span>
+              <span>Captain GPS Attendance & Company Onboarding Portal</span>
             </span>
           </div>
           <h1 className="text-2xl font-bold text-jaxmart-navy mt-1">Captain {currentUser.name} — Workspace</h1>
           <p className="text-xs text-gray-500 mt-1">
-            Punch In to record live GPS location & unlock the Selling Product Collection Form.
+            Step 1: Onboard a Company & get Admin Approval | Step 2: Add Products under Approved Company.
           </p>
         </div>
 
-        {/* Date Selector Input */}
-        <div className="bg-jaxmart-bg p-3 rounded-xl border border-gray-200 flex items-center space-x-3 text-xs shrink-0">
-          <div className="flex items-center space-x-1.5 font-bold text-jaxmart-navy">
+        <div className="flex items-center space-x-3 shrink-0">
+          {/* Date Selector Input */}
+          <div className="bg-jaxmart-bg p-2.5 rounded-xl border border-gray-200 flex items-center space-x-2 text-xs">
             <Calendar className="w-4 h-4 text-jaxmart-teal" />
-            <span>Select Date:</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="p-1 border border-gray-300 rounded-lg text-xs font-bold text-jaxmart-navy bg-white outline-none focus:ring-2 focus:ring-jaxmart-teal"
+            />
           </div>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
-            className="p-1.5 border border-gray-300 rounded-lg text-xs font-bold text-jaxmart-navy bg-white outline-none focus:ring-2 focus:ring-jaxmart-teal"
-          />
         </div>
       </div>
 
@@ -635,316 +721,295 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
 
       </div>
 
-      {/* SELLING PRODUCT COLLECTION FORM (UNLOCKED UPON PUNCH IN OR SHOWS PREVIEW) */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-200 pb-4 gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold">
-              <ShoppingBag className="w-5 h-5 text-jaxmart-teal" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-jaxmart-navy">Selling Product Collection Form</h2>
-              <p className="text-xs text-gray-500">
-                Collect and record field products with Category, Sub Category, Price, Product Image & Color Variant Image.
-              </p>
-            </div>
+      {/* MY ONBOARDED COMPANIES SECTION */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="w-5 h-5 text-jaxmart-teal" />
+            <h2 className="text-base font-bold text-jaxmart-navy">My Onboarded Companies Master ({companies.length})</h2>
           </div>
-
-          <span className={`px-3 py-1 rounded-full text-xs font-bold ${activeSession ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
-            }`}>
-            {activeSession ? '🔓 Form Unlocked (Shift Active)' : '🔒 Form Locked (Punch In Required)'}
-          </span>
+          <button
+            onClick={() => setShowMasterOnboardModal(true)}
+            className="px-4 py-2 bg-gradient-to-r from-jaxmart-navy to-slate-800 text-white rounded-lg text-xs font-bold hover:from-slate-800 hover:to-slate-900 flex items-center space-x-1.5 shadow-md transition-all"
+          >
+            <Plus className="w-4 h-4 text-jaxmart-teal" />
+            <span>Onboard Company Master</span>
+          </button>
         </div>
 
-        {!activeSession ? (
-          <div className="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300 space-y-3">
-            <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
-            <h3 className="text-base font-bold text-jaxmart-navy">Punch In Required to Submit Field Products</h3>
-            <p className="text-xs text-gray-500 max-w-md mx-auto">
-              Please click the <strong>"📍 PUNCH IN NOW FOR TODAY"</strong> button above to activate your shift and unlock the Selling Product Entry Form.
-            </p>
+        {companies.length === 0 ? (
+          <div className="p-6 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200 space-y-2">
+            <p className="font-bold text-xs text-jaxmart-navy">No Companies Onboarded Yet</p>
+            <p className="text-[11px] text-gray-400">Click <strong>"Onboard Company Master"</strong> to enter full profile, addresses, bank accounts & documents for Admin approval.</p>
           </div>
         ) : (
-          <form onSubmit={handleProductSubmit} className="space-y-6 text-xs">
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-              {/* Field 1: Product Name */}
-              <div>
-                <label className="font-bold text-jaxmart-navy block mb-1 flex items-center space-x-1">
-                  <Package className="w-3.5 h-3.5 text-jaxmart-teal" />
-                  <span>Product Name / Title *</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Heavy Duty Angle Grinder 850W"
-                  value={prdName}
-                  onChange={e => setPrdName(e.target.value)}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-semibold"
-                />
-              </div>
-
-              {/* Field 2: Category */}
-              <div>
-                <label className="font-bold text-jaxmart-navy block mb-1 flex items-center space-x-1">
-                  <Tag className="w-3.5 h-3.5 text-jaxmart-primary" />
-                  <span>Category *</span>
-                </label>
-                <select
-                  value={prdCategory}
-                  onChange={e => {
-                    setPrdCategory(e.target.value);
-                    const subOpts = subCategoryMap[e.target.value] || [];
-                    if (subOpts.length > 0) setPrdSubCategory(subOpts[0]);
-                  }}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-semibold"
-                >
-                  {Object.keys(subCategoryMap).map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Field 3: Sub Category */}
-              <div>
-                <label className="font-bold text-jaxmart-navy block mb-1 flex items-center space-x-1">
-                  <Tag className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Sub Category *</span>
-                </label>
-                <select
-                  value={prdSubCategory}
-                  onChange={e => setPrdSubCategory(e.target.value)}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-semibold"
-                >
-                  {(subCategoryMap[prdCategory] || []).map(sub => (
-                    <option key={sub} value={sub}>{sub}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Field 4: Price (₹) */}
-              <div>
-                <label className="font-bold text-jaxmart-navy block mb-1 flex items-center space-x-1">
-                  <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Price (₹ INR) *</span>
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  step="0.01"
-                  placeholder="3499.00"
-                  value={prdPrice}
-                  onChange={e => setPrdPrice(e.target.value)}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-extrabold text-jaxmart-navy"
-                />
-              </div>
-
-            </div>
-
-            {/* Field 5 & 6: Image Capture / File Select Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-jaxmart-bg p-5 rounded-xl border border-gray-200">
-
-              {/* Product Main Image Section */}
-              <div className="space-y-3">
-                <label className="font-bold text-jaxmart-navy block text-xs flex items-center space-x-1.5">
-                  <Camera className="w-4 h-4 text-jaxmart-primary" />
-                  <span>Product Main Image (Select File / Capture Camera) *</span>
-                </label>
-
-                <div className="flex items-center space-x-4">
-                  {prdImage ? (
-                    <img
-                      src={prdImage}
-                      alt="Product Main Preview"
-                      className="w-20 h-20 rounded-lg object-cover border-2 border-jaxmart-primary/30 shadow-sm shrink-0 bg-white"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center bg-white text-gray-400 text-[10px] shrink-0 font-semibold">
-                      <Camera className="w-6 h-6 text-gray-300 mb-1" />
-                      <span>No Photo</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {companies.map(c => (
+              <div key={c.id} className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2 text-xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-bold text-jaxmart-navy text-sm">{c.companyName}</h3>
+                      <p className="text-[10px] text-gray-400 font-mono">ID: {c.id} | GST: {c.gstin || 'N/A'}</p>
                     </div>
-                  )}
-                  <div className="space-y-2 text-xs">
-                    <label className="px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold text-jaxmart-navy hover:bg-gray-50 cursor-pointer inline-flex items-center space-x-2 shadow-sm">
-                      <Upload className="w-4 h-4 text-jaxmart-teal" />
-                      <span>Choose / Capture Image</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleMainImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                    <p className="text-[10px] text-gray-500">Supports JPG, PNG file upload or direct camera capture on mobile devices.</p>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                      c.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                      c.status === 'REJECTED' ? 'bg-red-100 text-red-800 border border-red-200' :
+                      'bg-amber-100 text-amber-800 border border-amber-200'
+                    }`}>
+                      {c.status}
+                    </span>
+                  </div>
+                  <div className="text-gray-600 text-[11px] mt-2 space-y-0.5">
+                    <div>Owner / Contact: <strong>{c.ownerName || c.contactPerson || 'N/A'}</strong> ({c.mobile || c.phone})</div>
+                    <div>Location: <strong>{c.city}, {c.state || 'Gujarat'}</strong></div>
+                    <div>Type: <span className="font-bold text-slate-700">{c.companyType || 'Manufacturer'}</span> | Rating: <span className="font-black text-amber-600">{c.rating || 'A'}</span></div>
+                    <div>Selling: <span className="text-jaxmart-teal font-semibold">{c.sellingCategories}</span></div>
                   </div>
                 </div>
-              </div>
 
-              {/* Product Color & Color Variant Image Section */}
-              <div className="space-y-3">
-                <label className="font-bold text-jaxmart-navy block text-xs flex items-center space-x-1.5">
-                  <Palette className="w-4 h-4 text-purple-600" />
-                  <span>Product Color Tag & Color Variant Image *</span>
-                </label>
-
-                <div className="flex items-center space-x-3 mb-2">
-                  <span className="font-semibold text-gray-700">Select Color:</span>
-                  {['Red', 'Blue', 'Black', 'Silver', 'Yellow'].map(col => (
+                <div className="pt-2 border-t border-slate-200 mt-2 space-y-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
-                      key={col}
-                      type="button"
-                      onClick={() => setPrdColor(col)}
-                      className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-all ${prdColor === col
-                          ? 'bg-jaxmart-navy text-white border-jaxmart-navy shadow-sm'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                        }`}
+                      onClick={() => setViewCompanyId(c.id)}
+                      className="py-1.5 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-jaxmart-navy text-[11px] font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm"
                     >
-                      {col}
+                      <Eye className="w-3.5 h-3.5 text-blue-600" />
+                      <span>View Master</span>
                     </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center space-x-4">
-                  {prdColorImage ? (
-                    <img
-                      src={prdColorImage}
-                      alt="Color Variant Preview"
-                      className="w-20 h-20 rounded-lg object-cover border-2 border-purple-300 shadow-sm shrink-0 bg-white"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-lg border-2 border-dashed border-purple-200 flex flex-col items-center justify-center bg-purple-50/50 text-purple-400 text-[10px] shrink-0 font-semibold">
-                      <Palette className="w-6 h-6 text-purple-300 mb-1" />
-                      <span>No Photo</span>
-                    </div>
-                  )}
-                  <div className="space-y-2 text-xs">
-                    <label className="px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold text-jaxmart-navy hover:bg-gray-50 cursor-pointer inline-flex items-center space-x-2 shadow-sm">
-                      <Upload className="w-4 h-4 text-purple-600" />
-                      <span>Choose / Capture Color Image</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleColorImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                    <p className="text-[10px] text-gray-500">Upload or capture specific color variant photo.</p>
+                    {c.status === 'APPROVED' ? (
+                      <button
+                        onClick={() => {
+                          setSelectedCompanyForPm(c.id);
+                          setShowProductMasterModal(true);
+                        }}
+                        className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors shadow"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Product</span>
+                      </button>
+                    ) : (
+                      <span className="py-1.5 px-3 bg-slate-100 text-slate-400 text-[10px] font-semibold rounded-lg text-center">
+                        Approval Pending
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
-
-            </div>
-
-            {/* Form Action Submit Button */}
-            <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={submittingProduct}
-                className="px-8 py-3 bg-jaxmart-teal text-white rounded-xl text-sm font-extrabold hover:bg-teal-600 transition-all shadow-jaxmart-lg flex items-center space-x-2 disabled:opacity-50"
-              >
-                {submittingProduct ? (
-                  <span>Saving Product to PostgreSQL...</span>
-                ) : (
-                  <>
-                    <Plus className="w-5 h-5" />
-                    <span>Submit Selling Product Entry</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-          </form>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* FIELD COLLECTED PRODUCTS GALLERY & TABLE */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card overflow-hidden">
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+      {/* PRODUCT MASTERS (PRODUCT FAMILIES) SECTION */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
           <div className="flex items-center space-x-2">
-            <Package className="w-5 h-5 text-jaxmart-teal" />
-            <h2 className="text-base font-bold text-jaxmart-navy">Collected Field Selling Products ({fieldProducts.length})</h2>
+            <Layers className="w-5 h-5 text-blue-600" />
+            <div>
+              <h2 className="text-base font-bold text-jaxmart-navy">Product Masters / Product Families ({productMasters.length})</h2>
+              <p className="text-[11px] text-gray-500">Top-level product families registered under Approved Companies (Product ≠ SKU)</p>
+            </div>
           </div>
-          <span className="text-xs text-gray-500">Stored in PostgreSQL `captain_field_products` table</span>
+          <button
+            onClick={() => {
+              setSelectedCompanyForPm(undefined);
+              setShowProductMasterModal(true);
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-blue-600/20 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-white" />
+            <span>Create Product Master</span>
+          </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-jaxmart-bg text-jaxmart-mediumBlue font-semibold uppercase tracking-wider border-b border-gray-200">
-                <th className="p-3.5">Product Main Image</th>
-                <th className="p-3.5">Color Variant Image</th>
-                <th className="p-3.5">Product Name</th>
-                <th className="p-3.5">Category & Sub Category</th>
-                <th className="p-3.5">Color</th>
-                <th className="p-3.5">Price</th>
-                <th className="p-3.5">Admin Approval Status</th>
-                <th className="p-3.5 text-right">Date Collected</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {fieldProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-400">
-                    No field products collected yet. Punch In and submit products above!
-                  </td>
-                </tr>
-              ) : (
-                fieldProducts.map(p => (
-                  <tr key={p.id} className="hover:bg-jaxmart-bg/50 transition-colors">
-                    <td className="p-3.5">
-                      {p.imageUrl ? (
-                        <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-lg object-cover border shadow-sm bg-white" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg border border-dashed border-gray-300 flex items-center justify-center bg-gray-50 text-[10px] text-gray-400 font-semibold">No Photo</div>
-                      )}
-                    </td>
-                    <td className="p-3.5">
-                      {p.colorImageUrl ? (
-                        <img src={p.colorImageUrl} alt={p.color} className="w-12 h-12 rounded-lg object-cover border border-purple-200 shadow-sm bg-white" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg border border-dashed border-purple-200 flex items-center justify-center bg-purple-50 text-[10px] text-purple-400 font-semibold">No Photo</div>
-                      )}
-                    </td>
-                    <td className="p-3.5 font-bold text-jaxmart-navy">
-                      <div>{p.name}</div>
-                      <div className="text-[10px] font-mono text-gray-400">ID: {p.id}</div>
-                    </td>
-                    <td className="p-3.5">
-                      <span className="font-semibold text-jaxmart-primary block">{p.category}</span>
-                      <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{p.subCategory}</span>
-                    </td>
-                    <td className="p-3.5 font-semibold text-purple-700">
-                      <span className="px-2 py-0.5 rounded bg-purple-50 border border-purple-200 text-[10px]">
-                        🎨 {p.color}
-                      </span>
-                    </td>
-                    <td className="p-3.5 font-black text-jaxmart-navy text-sm">
-                      ₹{p.price.toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-3.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
-                          p.status === 'REJECTED' ? 'bg-red-100 text-jaxmart-error' :
-                            'bg-amber-100 text-amber-800'
-                        }`}>
-                        {p.status === 'APPROVED' ? '✓ APPROVED (Ready for Selling)' :
-                          p.status === 'REJECTED' ? '✗ REJECTED (Declined)' :
-                            '⏳ PENDING (Awaiting Admin Approval)'}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right text-gray-500 font-mono">
-                      {p.createdAt}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        {productMasters.length === 0 ? (
+          <div className="p-8 text-center text-gray-500 bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
+            <Package className="w-10 h-10 text-blue-500 mx-auto opacity-70" />
+            <div>
+              <p className="font-bold text-sm text-jaxmart-navy">No Product Masters Created Yet</p>
+              <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+                Onboard a Product Master family (e.g. <em>Stainless Steel Sheet</em>, <em>PVC Conduit Pipe</em>) under an approved company.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedCompanyForPm(undefined);
+                setShowProductMasterModal(true);
+              }}
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition-all inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" /> Create Product Master Now
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {productMasters.map(pm => (
+              <div key={pm.id} className="p-4 rounded-xl border border-gray-200 bg-slate-50/70 space-y-2 text-xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-bold text-jaxmart-navy text-sm flex items-center gap-1.5">
+                        <Package className="w-4 h-4 text-blue-600" />
+                        {pm.productName}
+                      </h3>
+                      <p className="text-[10px] text-gray-400 font-mono">ID: {pm.id} | Company: <strong className="text-slate-700">{pm.companyName}</strong></p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                      pm.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                      pm.status === 'REJECTED' ? 'bg-red-100 text-red-800 border border-red-200' :
+                      'bg-amber-100 text-amber-800 border border-amber-200'
+                    }`}>
+                      {pm.status}
+                    </span>
+                  </div>
+
+                  <div className="text-gray-600 text-[11px] mt-2 space-y-1 bg-white p-2.5 rounded-lg border border-slate-200">
+                    <div className="flex justify-between">
+                      <span>Category: <strong className="text-slate-800">{pm.category}</strong></span>
+                      <span>Sub: <strong className="text-slate-800">{pm.subCategory}</strong></span>
+                    </div>
+                    <div className="flex justify-between text-slate-500 text-[10px]">
+                      <span>Type: <strong>{pm.productType || 'Standard'}</strong></span>
+                      <span>UOM: <strong className="text-blue-600 font-mono">{pm.baseUom}</strong></span>
+                      <span>Industry: <strong>{pm.industry}</strong></span>
+                    </div>
+                    {pm.description && (
+                      <p className="text-[10px] text-slate-500 italic border-t pt-1 mt-1 truncate">{pm.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-500">
+                  <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                    📦 {pm.skusCount || skus.filter(s => s.productId === pm.id).length || 0} SKUs Linked
+                  </span>
+                  {pm.status === 'APPROVED' ? (
+                    <button
+                      onClick={() => {
+                        setSelectedProductForSku(pm.id);
+                        setShowSkuMasterModal(true);
+                      }}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-sm transition-all"
+                    >
+                      <Plus className="w-3 h-3" /> Onboard SKU
+                    </button>
+                  ) : (
+                    <span className="font-mono text-[10px]">{pm.createdAt}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* 3. SKU MASTER CATALOG (SELLABLE ITEMS) SECTION */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-200 pb-3 gap-3">
+          <div className="flex items-center space-x-2">
+            <Tag className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h2 className="text-base font-bold text-jaxmart-navy">
+                SKU Master Catalog — Sellable Item Variants ({skus.length})
+              </h2>
+              <p className="text-[11px] text-gray-500">Exact technical specifications, dimensions, material grade & finish combinations</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowGradeMasterModal(true)}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center space-x-1 border border-slate-300 transition-all"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+              <span>🧪 Grade Masters ({grades.length})</span>
+            </button>
+            <button
+              onClick={() => {
+                setSelectedProductForSku(undefined);
+                setShowSkuMasterModal(true);
+              }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-white" />
+              <span>Onboard SKU Master</span>
+            </button>
+          </div>
+        </div>
+
+        {skus.length === 0 ? (
+          <div className="p-8 text-center text-gray-500 bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
+            <Tag className="w-10 h-10 text-indigo-500 mx-auto opacity-70" />
+            <div>
+              <p className="font-bold text-sm text-jaxmart-navy">No SKU Masters Created Yet</p>
+              <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+                Onboard exact sellable item variants (e.g. <em>SS304-2B-1220-2440-1.5MM</em>) under an approved Product Master family & Manufacturer.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedProductForSku(undefined);
+                setShowSkuMasterModal(true);
+              }}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" /> Onboard SKU Master Now
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {skus.map(s => (
+              <div key={s.id} className="p-4 rounded-xl border border-indigo-100 bg-slate-50/70 space-y-2.5 text-xs flex flex-col justify-between shadow-sm">
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[10px] font-mono text-slate-400">ID: {s.id}</span>
+                      <h3 className="font-mono font-black text-indigo-950 text-sm tracking-tight text-blue-900">
+                        {s.skuCode}
+                      </h3>
+                      <p className="text-[11px] font-bold text-slate-700 mt-0.5">
+                        📦 {s.productName} | 🏢 {s.companyName}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                      s.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                      s.status === 'REJECTED' ? 'bg-red-100 text-red-800 border border-red-200' :
+                      'bg-amber-100 text-amber-800 border border-amber-200'
+                    }`}>
+                      {s.status}
+                    </span>
+                  </div>
+
+                  <div className="text-slate-700 text-[11px] mt-2 space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
+                    <div className="flex justify-between items-center">
+                      <span>Grade: <strong className="text-indigo-700 font-extrabold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">{s.gradeCode}</strong></span>
+                      <span>Finish: <strong className="text-slate-800">{s.finishId}</strong></span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 text-[10px] text-slate-500 pt-1 border-t border-slate-100">
+                      <div>Thick: <strong className="text-slate-800">{s.thickness} {s.thicknessUom}</strong></div>
+                      <div>Width: <strong className="text-slate-800">{s.width} {s.widthUom}</strong></div>
+                      <div>Length: <strong className="text-slate-800">{s.length} {s.lengthUom}</strong></div>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100">
+                      <span>Weight: <strong className="text-slate-800">{s.weight} {s.weightUom}</strong></span>
+                      <span>Origin: <strong>{s.countryOfOrigin}</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
+                  <div className="text-base font-black text-emerald-700">
+                    ₹{s.price ? s.price.toLocaleString('en-IN') : 'N/A'}
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400">{s.createdAt}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+
 
       {/* ATTENDANCE HISTORY LOG TABLE */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card overflow-hidden">
@@ -1002,6 +1067,164 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
           </table>
         </div>
       </div>
+
+      {/* ONBOARD NEW COMPANY MODAL */}
+      {showOnboardModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-jaxmart-2xl space-y-4 border border-gray-100">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-5 h-5 text-jaxmart-teal" />
+                <h3 className="text-base font-bold text-jaxmart-navy">Onboard New Company / Business</h3>
+              </div>
+              <button onClick={() => setShowOnboardModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleOnboardCompany} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">Company / Business Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Apex Engineering Pvt Ltd"
+                  value={cmpName}
+                  onChange={e => setCmpName(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Owner / Director Name</label>
+                  <input
+                    type="text"
+                    placeholder="Rajesh Mehta"
+                    value={cmpOwner}
+                    onChange={e => setCmpOwner(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Contact Mobile</label>
+                  <input
+                    type="text"
+                    placeholder="+91 98000 00000"
+                    value={cmpMobile}
+                    onChange={e => setCmpMobile(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">GSTIN Number</label>
+                  <input
+                    type="text"
+                    placeholder="24AAAAA0000A1Z5"
+                    value={cmpGstin}
+                    onChange={e => setCmpGstin(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-mono uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">City / Region</label>
+                  <input
+                    type="text"
+                    placeholder="Surat / Ahmedabad"
+                    value={cmpCity}
+                    onChange={e => setCmpCity(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">Selling Categories (What products do they sell?)</label>
+                <input
+                  type="text"
+                  placeholder="Power Tools, Electrical Cables, Safety PPE"
+                  value={cmpCategories}
+                  onChange={e => setCmpCategories(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-jaxmart-teal font-semibold"
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium space-y-1">
+                <p>📌 <strong>Approval Note:</strong> Once submitted, this company will be sent to Admin for approval. Once Admin approves it, you can add products under it.</p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOnboardModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 font-semibold hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-jaxmart-teal text-white rounded-lg font-bold hover:bg-teal-600 shadow-sm"
+                >
+                  Submit for Admin Approval
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MASTER COMPANY ONBOARDING MODAL */}
+      <CompanyMasterModal
+        isOpen={showMasterOnboardModal}
+        onClose={() => setShowMasterOnboardModal(false)}
+        onSuccess={(newCmp) => {
+          fetchBackendCompanies();
+          setNotificationToast(`🏢 Master Company "${newCmp.companyName}" onboarded & sent for Admin Approval!`);
+        }}
+        captainId={currentUser?.id || 'USR-CAP-201'}
+      />
+
+      {/* PRODUCT MASTER ONBOARDING MODAL */}
+      <ProductMasterModal
+        isOpen={showProductMasterModal}
+        onClose={() => setShowProductMasterModal(false)}
+        onSuccess={(newPm) => {
+          fetchBackendProductMasters();
+          setNotificationToast(`📦 Product Master "${newPm.productName}" created & sent for Admin Approval!`);
+        }}
+        captainId={currentUser?.id || 'USR-CAP-201'}
+        approvedCompanies={companies.filter(c => c.status === 'APPROVED').length > 0 ? companies.filter(c => c.status === 'APPROVED') : companies}
+        defaultCompanyId={selectedCompanyForPm}
+      />
+
+      {/* SKU MASTER ONBOARDING MODAL */}
+      <SkuMasterModal
+        isOpen={showSkuMasterModal}
+        onClose={() => setShowSkuMasterModal(false)}
+        onSuccess={(newSku) => {
+          fetchBackendSkus();
+          setNotificationToast(`🏷️ SKU Master "${newSku.skuCode}" onboarded & sent for Admin Approval!`);
+        }}
+        captainId={currentUser?.id || 'USR-CAP-201'}
+        approvedProducts={productMasters.filter(p => p.status === 'APPROVED').length > 0 ? productMasters.filter(p => p.status === 'APPROVED') : productMasters}
+        approvedCompanies={companies.filter(c => c.status === 'APPROVED').length > 0 ? companies.filter(c => c.status === 'APPROVED') : companies}
+        grades={grades}
+        defaultProductId={selectedProductForSku}
+      />
+
+      {/* GRADE MASTER SYSTEM MODAL */}
+      <GradeMasterModal
+        isOpen={showGradeMasterModal}
+        onClose={() => setShowGradeMasterModal(false)}
+        onSuccess={(newGrade) => {
+          fetchBackendGrades();
+          setNotificationToast(`🧪 Grade Master "${newGrade.gradeCode}" registered!`);
+        }}
+        grades={grades}
+      />
 
     </div>
   );

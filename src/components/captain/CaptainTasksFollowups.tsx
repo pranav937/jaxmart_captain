@@ -91,7 +91,7 @@ export const CaptainTasksFollowups: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-gray-200 shadow-jaxmart-card">
         <div>
@@ -127,9 +127,8 @@ export const CaptainTasksFollowups: React.FC = () => {
         <div className="flex items-center space-x-2 border-b border-gray-200 pb-3">
           <button
             onClick={() => setActiveTab('TASKS')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-              activeTab === 'TASKS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'TASKS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+              }`}
           >
             <CheckSquare className="w-4 h-4" />
             <span>Field Tasks ({tasks.length})</span>
@@ -137,9 +136,8 @@ export const CaptainTasksFollowups: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('FOLLOWUPS')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-              activeTab === 'FOLLOWUPS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'FOLLOWUPS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+              }`}
           >
             <MessageSquare className="w-4 h-4" />
             <span>Follow-up Notes ({followups.length})</span>
@@ -154,9 +152,8 @@ export const CaptainTasksFollowups: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
                     <span className="font-bold text-jaxmart-navy text-sm">{t.title}</span>
-                    <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                      t.priority === 'HIGH' ? 'bg-red-100 text-jaxmart-error' : 'bg-amber-100 text-amber-800'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${t.priority === 'HIGH' ? 'bg-red-100 text-jaxmart-error' : 'bg-amber-100 text-amber-800'
+                      }`}>
                       {t.priority} Priority
                     </span>
                     <span className="text-[11px] bg-white border border-gray-200 text-jaxmart-teal px-2 py-0.5 rounded font-semibold">
@@ -175,11 +172,10 @@ export const CaptainTasksFollowups: React.FC = () => {
                     <button
                       key={st}
                       onClick={() => handleUpdateTaskStatus(t.id, st)}
-                      className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
-                        t.status === st
+                      className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${t.status === st
                           ? st === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-sm' : st === 'IN_PROGRESS' ? 'bg-blue-600 text-white shadow-sm' : 'bg-amber-500 text-white shadow-sm'
                           : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       {st.replace('_', ' ')}
                     </button>

@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 
 const { Pool } = pg;
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -160,7 +160,9 @@ async function initializeDbSchema() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS captain_field_products (
           id VARCHAR(64) PRIMARY KEY,
-          captain_id VARCHAR(64) REFERENCES users(id) ON DELETE CASCADE,
+          captain_id VARCHAR(64),
+          company_id VARCHAR(64),
+          company_name VARCHAR(255),
           name VARCHAR(255) NOT NULL,
           category VARCHAR(100) NOT NULL,
           sub_category VARCHAR(100) NOT NULL,
@@ -171,18 +173,226 @@ async function initializeDbSchema() {
           status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE captain_field_products ADD COLUMN IF NOT EXISTS company_id VARCHAR(64);
+      ALTER TABLE captain_field_products ADD COLUMN IF NOT EXISTS company_name VARCHAR(255);
     `);
 
-    // Seed baseline accounts into PostgreSQL database if missing
+    // 11. Captain Onboarded Company Master & Sub-Tables
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS companies (
+          id VARCHAR(64) PRIMARY KEY,
+          captain_id VARCHAR(64),
+          company_name VARCHAR(255) NOT NULL,
+          legal_name VARCHAR(255),
+          company_type VARCHAR(100),
+          brand_name VARCHAR(100),
+          registration_no VARCHAR(100),
+          owner_name VARCHAR(255),
+          gstin VARCHAR(64),
+          pan VARCHAR(32),
+          country VARCHAR(100) DEFAULT 'India',
+          state VARCHAR(100),
+          city VARCHAR(100),
+          address TEXT,
+          website VARCHAR(255),
+          contact_person VARCHAR(255),
+          phone VARCHAR(32),
+          mobile VARCHAR(32),
+          email VARCHAR(255),
+          payment_terms VARCHAR(100) DEFAULT '30 Days',
+          credit_limit VARCHAR(100) DEFAULT '₹10,00,000',
+          rating VARCHAR(10) DEFAULT 'A',
+          selling_categories TEXT,
+          status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='legal_name') THEN
+          ALTER TABLE companies ADD COLUMN legal_name VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='company_type') THEN
+          ALTER TABLE companies ADD COLUMN company_type VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='brand_name') THEN
+          ALTER TABLE companies ADD COLUMN brand_name VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='registration_no') THEN
+          ALTER TABLE companies ADD COLUMN registration_no VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='pan') THEN
+          ALTER TABLE companies ADD COLUMN pan VARCHAR(32);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='country') THEN
+          ALTER TABLE companies ADD COLUMN country VARCHAR(100) DEFAULT 'India';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='state') THEN
+          ALTER TABLE companies ADD COLUMN state VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='address') THEN
+          ALTER TABLE companies ADD COLUMN address TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='website') THEN
+          ALTER TABLE companies ADD COLUMN website VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='contact_person') THEN
+          ALTER TABLE companies ADD COLUMN contact_person VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='phone') THEN
+          ALTER TABLE companies ADD COLUMN phone VARCHAR(32);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='payment_terms') THEN
+          ALTER TABLE companies ADD COLUMN payment_terms VARCHAR(100) DEFAULT '30 Days';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='credit_limit') THEN
+          ALTER TABLE companies ADD COLUMN credit_limit VARCHAR(100) DEFAULT '₹10,00,000';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='rating') THEN
+          ALTER TABLE companies ADD COLUMN rating VARCHAR(10) DEFAULT 'A';
+        END IF;
+      END $$;
+
+      CREATE TABLE IF NOT EXISTS company_addresses (
+          id VARCHAR(64) PRIMARY KEY,
+          company_id VARCHAR(64) REFERENCES companies(id) ON DELETE CASCADE,
+          address_type VARCHAR(50) NOT NULL,
+          address_line1 TEXT NOT NULL,
+          address_line2 TEXT,
+          city VARCHAR(100),
+          state VARCHAR(100),
+          pincode VARCHAR(20),
+          country VARCHAR(100) DEFAULT 'India',
+          is_primary BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS company_contacts (
+          id VARCHAR(64) PRIMARY KEY,
+          company_id VARCHAR(64) REFERENCES companies(id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          designation VARCHAR(100),
+          phone VARCHAR(32),
+          email VARCHAR(255),
+          is_primary BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS company_documents (
+          id VARCHAR(64) PRIMARY KEY,
+          company_id VARCHAR(64) REFERENCES companies(id) ON DELETE CASCADE,
+          doc_type VARCHAR(100) NOT NULL,
+          doc_number VARCHAR(100),
+          file_url TEXT,
+          status VARCHAR(32) DEFAULT 'PENDING',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS company_bank_accounts (
+          id VARCHAR(64) PRIMARY KEY,
+          company_id VARCHAR(64) REFERENCES companies(id) ON DELETE CASCADE,
+          account_name VARCHAR(255) NOT NULL,
+          bank_name VARCHAR(255) NOT NULL,
+          account_number VARCHAR(100) NOT NULL,
+          ifsc_code VARCHAR(32) NOT NULL,
+          branch VARCHAR(100),
+          account_type VARCHAR(50) DEFAULT 'Current',
+          is_primary BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS company_certifications (
+          id VARCHAR(64) PRIMARY KEY,
+          company_id VARCHAR(64) REFERENCES companies(id) ON DELETE CASCADE,
+          cert_name VARCHAR(255) NOT NULL,
+          cert_number VARCHAR(100),
+          issuing_authority VARCHAR(255),
+          valid_till VARCHAR(50),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 12. Product Master (Product Family) Table
+      CREATE TABLE IF NOT EXISTS product_masters (
+          id VARCHAR(64) PRIMARY KEY,
+          company_id VARCHAR(64) REFERENCES companies(id) ON DELETE CASCADE,
+          company_name VARCHAR(255),
+          captain_id VARCHAR(64),
+          product_name VARCHAR(255) NOT NULL,
+          category VARCHAR(100) NOT NULL,
+          sub_category VARCHAR(100) NOT NULL,
+          product_type VARCHAR(100) NOT NULL,
+          description TEXT,
+          base_uom VARCHAR(32) NOT NULL DEFAULT 'KG',
+          industry VARCHAR(100),
+          status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 13. Grade Master Table
+      CREATE TABLE IF NOT EXISTS grade_masters (
+          id VARCHAR(64) PRIMARY KEY,
+          grade_code VARCHAR(64) NOT NULL UNIQUE,
+          grade_name VARCHAR(255) NOT NULL,
+          standard VARCHAR(64) DEFAULT 'ASTM',
+          standard_grade VARCHAR(64) DEFAULT '304',
+          uns VARCHAR(64) DEFAULT 'S30400',
+          en VARCHAR(64) DEFAULT '1.4301',
+          din VARCHAR(64) DEFAULT 'X5CrNi18-10',
+          chemical_composition JSONB DEFAULT '{}',
+          mechanical_properties JSONB DEFAULT '{}',
+          hardness VARCHAR(64),
+          tensile_strength VARCHAR(64),
+          yield_strength VARCHAR(64),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 14. SKU Master Table
+      CREATE TABLE IF NOT EXISTS sku_masters (
+          id VARCHAR(64) PRIMARY KEY,
+          sku_code VARCHAR(128) NOT NULL,
+          product_id VARCHAR(64) REFERENCES product_masters(id) ON DELETE CASCADE,
+          manufacturer_id VARCHAR(64) REFERENCES companies(id) ON DELETE CASCADE,
+          brand_id VARCHAR(64),
+          grade_id VARCHAR(64) REFERENCES grade_masters(id) ON DELETE SET NULL,
+          finish_id VARCHAR(64),
+          thickness NUMERIC(10,2),
+          thickness_uom VARCHAR(16) DEFAULT 'MM',
+          width NUMERIC(10,2),
+          width_uom VARCHAR(16) DEFAULT 'MM',
+          length NUMERIC(10,2),
+          length_uom VARCHAR(16) DEFAULT 'MM',
+          weight NUMERIC(10,2),
+          weight_uom VARCHAR(16) DEFAULT 'KG',
+          color_id VARCHAR(64),
+          standard_id VARCHAR(64) DEFAULT 'ASTM-A240',
+          country_of_origin VARCHAR(64) DEFAULT 'India',
+          price NUMERIC(12,2) DEFAULT 0,
+          status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+          captain_id VARCHAR(64),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='captain_field_products' AND column_name='product_master_id') THEN
+          ALTER TABLE captain_field_products ADD COLUMN product_master_id VARCHAR(64);
+        END IF;
+      END $$;
+    `);
+
+    // Seed baseline accounts & grade masters into PostgreSQL database if missing
     await client.query(`
       INSERT INTO users (id, email, mobile, password_hash, first_name, last_name, role, status, avatar_url, is_deleted) VALUES
       ('USR-SA-001', 'jax@gmail.com', '+91 98765 43210', '123456', 'Super', 'Admin', 'SUPER_ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', FALSE),
-      ('USR-SA-002', 'superadmin@jaxmart.com', '+91 99999 88888', '123456', 'Main', 'SuperAdmin', 'SUPER_ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', FALSE),
-      ('USR-ADM-101', 'jaxmart@gmail.com', '+91 98220 11223', '123456', 'Jaxmart', 'Admin', 'ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', FALSE),
-      ('USR-CAP-201', 'amit.captain@jaxmart.com', '+91 97112 33445', '123456', 'Amit', 'Verma', 'CAPTAIN', 'ACTIVE', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', FALSE),
-      ('USR-SEL-301', 'contact@abctraders.in', '+91 91234 56789', '123456', 'Rajesh', 'Mehta', 'SELLER', 'ACTIVE', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', FALSE),
-      ('USR-CUST-401', 'customer@reliancestores.com', '+91 98111 22334', '123456', 'Sanjay', 'Patel', 'CUSTOMER', 'ACTIVE', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150', FALSE)
-      ON CONFLICT (email) DO NOTHING;
+      ('USR-SA-002', 'superadmin@jaxmart.com', '+91 99999 88888', '123456', 'Main', 'SuperAdmin', 'SUPER_ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', FALSE)
+      ON CONFLICT (id) DO NOTHING;
+
+      INSERT INTO grade_masters (id, grade_code, grade_name, standard, standard_grade, uns, en, din, hardness, tensile_strength, yield_strength) VALUES
+      ('GRADE-001', 'SS304', 'Stainless Steel 304', 'ASTM', '304', 'S30400', '1.4301', 'X5CrNi18-10', '201 HB max', '515 MPa min', '205 MPa min'),
+      ('GRADE-002', 'SS316', 'Stainless Steel 316', 'ASTM', '316', 'S31600', '1.4401', 'X5CrNiMo17-12-2', '217 HB max', '515 MPa min', '205 MPa min'),
+      ('GRADE-003', 'SS202', 'Stainless Steel 202', 'ASTM', '202', 'S20200', '1.4373', 'X12CrNiMnN17-7-5', '241 HB max', '620 MPa min', '260 MPa min')
+      ON CONFLICT (id) DO NOTHING;
     `);
 
     client.release();
@@ -575,19 +785,21 @@ app.get('/api/captain/field-products', async (req, res) => {
 // 22. POST /api/captain/field-products - Submit Field Product Collection Entry
 app.post('/api/captain/field-products', async (req, res) => {
   try {
-    const { id, captainId, name, category, subCategory, price, color, imageUrl, colorImageUrl } = req.body;
+    const { id, captainId, companyId, companyName, name, category, subCategory, price, color, imageUrl, colorImageUrl } = req.body;
     if (!name || !category || !price) {
       return res.status(400).json({ success: false, error: 'Product Name, Category, and Price are required.' });
     }
 
     const prdId = id || `FPRD-${Math.floor(100 + Math.random() * 900)}`;
     const result = await pool.query(
-      `INSERT INTO captain_field_products (id, captain_id, name, category, sub_category, price, color, image_url, color_image_url, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING')
-       ON CONFLICT (id) DO UPDATE SET name = $3, price = $6, color = $7 RETURNING *`,
+      `INSERT INTO captain_field_products (id, captain_id, company_id, company_name, name, category, sub_category, price, color, image_url, color_image_url, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING')
+       ON CONFLICT (id) DO UPDATE SET name = $5, price = $8, color = $9 RETURNING *`,
       [
         prdId,
         captainId || 'USR-CAP-201',
+        companyId || null,
+        companyName || null,
         name.trim(),
         category,
         subCategory || 'General',
@@ -598,7 +810,7 @@ app.post('/api/captain/field-products', async (req, res) => {
       ]
     );
 
-    console.log(`🛍️ [PostgreSQL DB] Captain Field Product Submitted: ${name} (ID: ${prdId}, ₹${price})`);
+    console.log(`🛍️ [PostgreSQL DB] Captain Field Product Submitted: ${name} under Company ${companyName || 'General'} (ID: ${prdId}, ₹${price})`);
     res.json({ success: true, message: 'Field Product Saved to PostgreSQL DB!', product: result.rows[0] });
   } catch (err) {
     console.error('Error inserting field product:', err.message);
@@ -622,6 +834,782 @@ app.put('/api/admin/field-products/:id/status', async (req, res) => {
 
     console.log(`🛡️ [PostgreSQL DB] Admin updated Field Product ${id} Status to ${status}`);
     res.json({ success: true, message: `Field product status updated to ${status}`, product: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 24. GET /api/captain/companies - Fetch Captain Onboarded Companies
+app.get('/api/captain/companies', async (req, res) => {
+  try {
+    const { captainId } = req.query;
+    const query = captainId
+      ? `SELECT c.*, CONCAT(u.first_name, ' ', u.last_name) AS captain_name
+         FROM companies c
+         LEFT JOIN users u ON c.captain_id = u.id
+         WHERE c.captain_id = $1
+         ORDER BY c.created_at DESC;`
+      : `SELECT c.*, CONCAT(u.first_name, ' ', u.last_name) AS captain_name
+         FROM companies c
+         LEFT JOIN users u ON c.captain_id = u.id
+         ORDER BY c.created_at DESC;`;
+    const params = captainId ? [captainId] : [];
+    const result = await pool.query(query, params);
+    
+    // Map database snake_case to frontend camelCase
+    const formatted = result.rows.map(r => ({
+      id: r.id,
+      captainId: r.captain_id,
+      captainName: r.captain_name || 'Captain',
+      companyName: r.company_name,
+      legalName: r.legal_name || r.company_name,
+      companyType: r.company_type || 'Manufacturer',
+      brandName: r.brand_name || '',
+      registrationNo: r.registration_no || '',
+      ownerName: r.owner_name || r.contact_person || '',
+      gstin: r.gstin || '',
+      pan: r.pan || '',
+      country: r.country || 'India',
+      state: r.state || '',
+      city: r.city || '',
+      address: r.address || '',
+      website: r.website || '',
+      contactPerson: r.contact_person || r.owner_name || '',
+      phone: r.phone || r.mobile || '',
+      mobile: r.mobile || r.phone || '',
+      email: r.email || '',
+      paymentTerms: r.payment_terms || '30 Days',
+      creditLimit: r.credit_limit || '₹10,00,000',
+      rating: r.rating || 'A',
+      sellingCategories: r.selling_categories || 'General',
+      status: r.status,
+      createdAt: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    }));
+
+    res.json({ success: true, companies: formatted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 24b. GET /api/captain/companies/:id - Fetch Single Master Company with all Sub-tables
+app.get('/api/captain/companies/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cmpRes = await pool.query(
+      `SELECT c.*, CONCAT(u.first_name, ' ', u.last_name) AS captain_name
+       FROM companies c
+       LEFT JOIN users u ON c.captain_id = u.id
+       WHERE c.id = $1`,
+      [id]
+    );
+
+    if (cmpRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Company not found' });
+    }
+
+    const r = cmpRes.rows[0];
+
+    const [addrsRes, contactsRes, docsRes, bankRes, certsRes] = await Promise.all([
+      pool.query(`SELECT * FROM company_addresses WHERE company_id = $1 ORDER BY created_at ASC`, [id]),
+      pool.query(`SELECT * FROM company_contacts WHERE company_id = $1 ORDER BY created_at ASC`, [id]),
+      pool.query(`SELECT * FROM company_documents WHERE company_id = $1 ORDER BY created_at ASC`, [id]),
+      pool.query(`SELECT * FROM company_bank_accounts WHERE company_id = $1 ORDER BY created_at ASC`, [id]),
+      pool.query(`SELECT * FROM company_certifications WHERE company_id = $1 ORDER BY created_at ASC`, [id])
+    ]);
+
+    const companyDetail = {
+      id: r.id,
+      captainId: r.captain_id,
+      captainName: r.captain_name || 'Captain',
+      companyName: r.company_name,
+      legalName: r.legal_name || r.company_name,
+      companyType: r.company_type || 'Manufacturer',
+      brandName: r.brand_name || '',
+      registrationNo: r.registration_no || '',
+      ownerName: r.owner_name || r.contact_person || '',
+      gstin: r.gstin || '',
+      pan: r.pan || '',
+      country: r.country || 'India',
+      state: r.state || '',
+      city: r.city || '',
+      address: r.address || '',
+      website: r.website || '',
+      contactPerson: r.contact_person || r.owner_name || '',
+      phone: r.phone || r.mobile || '',
+      mobile: r.mobile || r.phone || '',
+      email: r.email || '',
+      paymentTerms: r.payment_terms || '30 Days',
+      creditLimit: r.credit_limit || '₹10,00,000',
+      rating: r.rating || 'A',
+      sellingCategories: r.selling_categories || 'General',
+      status: r.status,
+      createdAt: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      addresses: addrsRes.rows.map(a => ({
+        id: a.id,
+        addressType: a.address_type,
+        addressLine1: a.address_line1,
+        addressLine2: a.address_line2,
+        city: a.city,
+        state: a.state,
+        pincode: a.pincode,
+        country: a.country,
+        isPrimary: a.is_primary
+      })),
+      contacts: contactsRes.rows.map(ct => ({
+        id: ct.id,
+        name: ct.name,
+        designation: ct.designation,
+        phone: ct.phone,
+        email: ct.email,
+        isPrimary: ct.is_primary
+      })),
+      documents: docsRes.rows.map(d => ({
+        id: d.id,
+        docType: d.doc_type,
+        docNumber: d.doc_number,
+        fileUrl: d.file_url,
+        status: d.status
+      })),
+      bankAccounts: bankRes.rows.map(b => ({
+        id: b.id,
+        accountName: b.account_name,
+        bankName: b.bank_name,
+        accountNumber: b.account_number,
+        ifscCode: b.ifsc_code,
+        branch: b.branch,
+        accountType: b.account_type,
+        isPrimary: b.is_primary
+      })),
+      certifications: certsRes.rows.map(cert => ({
+        id: cert.id,
+        certName: cert.cert_name,
+        certNumber: cert.cert_number,
+        issuingAuthority: cert.issuing_authority,
+        validTill: cert.valid_till
+      }))
+    };
+
+    res.json({ success: true, company: companyDetail });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 25. POST /api/captain/companies - Onboard Master Company & Sub-tables
+app.post('/api/captain/companies', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const {
+      id,
+      captainId,
+      companyName,
+      legalName,
+      companyType,
+      brandName,
+      registrationNo,
+      ownerName,
+      gstin,
+      pan,
+      country,
+      state,
+      city,
+      address,
+      website,
+      contactPerson,
+      phone,
+      mobile,
+      email,
+      paymentTerms,
+      creditLimit,
+      rating,
+      sellingCategories,
+      addresses,
+      contacts,
+      documents,
+      bankAccounts,
+      certifications
+    } = req.body;
+
+    if (!companyName) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'Company Name is required.' });
+    }
+
+    const cmpId = id || `COMP-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const insertResult = await client.query(
+      `INSERT INTO companies (
+        id, captain_id, company_name, legal_name, company_type, brand_name, registration_no,
+        owner_name, gstin, pan, country, state, city, address, website, contact_person,
+        phone, mobile, email, payment_terms, credit_limit, rating, selling_categories, status
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 'PENDING')
+       ON CONFLICT (id) DO UPDATE SET
+        company_name = EXCLUDED.company_name,
+        legal_name = EXCLUDED.legal_name,
+        company_type = EXCLUDED.company_type,
+        brand_name = EXCLUDED.brand_name,
+        registration_no = EXCLUDED.registration_no,
+        owner_name = EXCLUDED.owner_name,
+        gstin = EXCLUDED.gstin,
+        pan = EXCLUDED.pan,
+        country = EXCLUDED.country,
+        state = EXCLUDED.state,
+        city = EXCLUDED.city,
+        address = EXCLUDED.address,
+        website = EXCLUDED.website,
+        contact_person = EXCLUDED.contact_person,
+        phone = EXCLUDED.phone,
+        mobile = EXCLUDED.mobile,
+        email = EXCLUDED.email,
+        payment_terms = EXCLUDED.payment_terms,
+        credit_limit = EXCLUDED.credit_limit,
+        rating = EXCLUDED.rating,
+        selling_categories = EXCLUDED.selling_categories
+       RETURNING *`,
+      [
+        cmpId,
+        captainId || 'USR-CAP-201',
+        companyName.trim(),
+        legalName || companyName.trim(),
+        companyType || 'Manufacturer',
+        brandName || '',
+        registrationNo || '',
+        ownerName || contactPerson || '',
+        gstin || '',
+        pan || '',
+        country || 'India',
+        state || 'Gujarat',
+        city || 'Ahmedabad',
+        address || '',
+        website || '',
+        contactPerson || ownerName || '',
+        phone || mobile || '',
+        mobile || phone || '',
+        email || '',
+        paymentTerms || '30 Days',
+        creditLimit || '₹10,00,000',
+        rating || 'A',
+        sellingCategories || 'General Hardware'
+      ]
+    );
+
+    // Insert Company Addresses
+    if (Array.isArray(addresses) && addresses.length > 0) {
+      for (const addr of addresses) {
+        if (!addr.addressLine1) continue;
+        const addrId = addr.id || `ADDR-${Math.floor(100 + Math.random() * 900)}`;
+        await client.query(
+          `INSERT INTO company_addresses (id, company_id, address_type, address_line1, address_line2, city, state, pincode, country, is_primary)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [
+            addrId,
+            cmpId,
+            addr.addressType || 'Registered',
+            addr.addressLine1,
+            addr.addressLine2 || '',
+            addr.city || city || '',
+            addr.state || state || '',
+            addr.pincode || '',
+            addr.country || country || 'India',
+            addr.isPrimary || false
+          ]
+        );
+      }
+    }
+
+    // Insert Company Contacts
+    if (Array.isArray(contacts) && contacts.length > 0) {
+      for (const ct of contacts) {
+        if (!ct.name) continue;
+        const ctId = ct.id || `CNT-${Math.floor(100 + Math.random() * 900)}`;
+        await client.query(
+          `INSERT INTO company_contacts (id, company_id, name, designation, phone, email, is_primary)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            ctId,
+            cmpId,
+            ct.name,
+            ct.designation || 'Manager',
+            ct.phone || '',
+            ct.email || '',
+            ct.isPrimary || false
+          ]
+        );
+      }
+    }
+
+    // Insert Company Documents
+    if (Array.isArray(documents) && documents.length > 0) {
+      for (const doc of documents) {
+        if (!doc.docType) continue;
+        const docId = doc.id || `DOC-${Math.floor(100 + Math.random() * 900)}`;
+        await client.query(
+          `INSERT INTO company_documents (id, company_id, doc_type, doc_number, file_url, status)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            docId,
+            cmpId,
+            doc.docType,
+            doc.docNumber || '',
+            doc.fileUrl || '',
+            doc.status || 'PENDING'
+          ]
+        );
+      }
+    }
+
+    // Insert Company Bank Accounts
+    if (Array.isArray(bankAccounts) && bankAccounts.length > 0) {
+      for (const bank of bankAccounts) {
+        if (!bank.accountNumber) continue;
+        const bankId = bank.id || `BNK-${Math.floor(100 + Math.random() * 900)}`;
+        await client.query(
+          `INSERT INTO company_bank_accounts (id, company_id, account_name, bank_name, account_number, ifsc_code, branch, account_type, is_primary)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            bankId,
+            cmpId,
+            bank.accountName || companyName,
+            bank.bankName,
+            bank.accountNumber,
+            bank.ifscCode,
+            bank.branch || '',
+            bank.accountType || 'Current',
+            bank.isPrimary || false
+          ]
+        );
+      }
+    }
+
+    // Insert Company Certifications
+    if (Array.isArray(certifications) && certifications.length > 0) {
+      for (const cert of certifications) {
+        if (!cert.certName) continue;
+        const certId = cert.id || `CRT-${Math.floor(100 + Math.random() * 900)}`;
+        await client.query(
+          `INSERT INTO company_certifications (id, company_id, cert_name, cert_number, issuing_authority, valid_till)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            certId,
+            cmpId,
+            cert.certName,
+            cert.certNumber || '',
+            cert.issuingAuthority || '',
+            cert.validTill || ''
+          ]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log(`🏢 [PostgreSQL DB] Captain Master Company Onboarded: ${companyName} (${cmpId}) with sub-tables!`);
+
+    res.json({
+      success: true,
+      message: 'Master Company Profile Onboarded Successfully & Sent for Admin Approval!',
+      company: insertResult.rows[0]
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error onboarding master company:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+
+// 26. PUT /api/admin/companies/:id/status - Admin Approve or Reject Company Onboarding
+app.put('/api/admin/companies/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'APPROVED' | 'REJECTED' | 'PENDING'
+    if (!status) {
+      return res.status(400).json({ success: false, error: 'Status is required.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE companies SET status = $1 WHERE id = $2 RETURNING *`,
+      [status, id]
+    );
+
+    console.log(`🛡️ [PostgreSQL DB] Admin updated Company ${id} Status to ${status}`);
+    res.json({ success: true, message: `Company status updated to ${status}`, company: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// PRODUCT MASTER (PRODUCT FAMILY) REST API ENDPOINTS
+// ============================================================================
+
+// 27. GET /api/captain/product-masters - Fetch Product Families
+app.get('/api/captain/product-masters', async (req, res) => {
+  try {
+    const { captainId, companyId } = req.query;
+    let query = `
+      SELECT pm.*, 
+             CONCAT(u.first_name, ' ', u.last_name) AS captain_name,
+             c.company_name AS fetched_company_name,
+             (SELECT COUNT(*) FROM captain_field_products cfp WHERE cfp.product_master_id = pm.id) AS skus_count
+      FROM product_masters pm
+      LEFT JOIN users u ON pm.captain_id = u.id
+      LEFT JOIN companies c ON pm.company_id = c.id
+    `;
+
+    const conditions = [];
+    const params = [];
+
+    if (captainId) {
+      params.push(captainId);
+      conditions.push(`pm.captain_id = $${params.length}`);
+    }
+    if (companyId) {
+      params.push(companyId);
+      conditions.push(`pm.company_id = $${params.length}`);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    query += ` ORDER BY pm.created_at DESC;`;
+
+    const result = await pool.query(query, params);
+
+    const formatted = result.rows.map(r => ({
+      id: r.id,
+      companyId: r.company_id,
+      companyName: r.company_name || r.fetched_company_name || 'General Company',
+      captainId: r.captain_id,
+      captainName: r.captain_name || 'Captain',
+      productName: r.product_name,
+      category: r.category,
+      subCategory: r.sub_category,
+      productType: r.product_type,
+      description: r.description || '',
+      baseUom: r.base_uom || 'KG',
+      industry: r.industry || 'Construction',
+      status: r.status,
+      createdAt: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      skusCount: parseInt(r.skus_count || '0', 10)
+    }));
+
+    res.json({ success: true, productMasters: formatted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 28. POST /api/captain/product-masters - Onboard Product Master (Product Family)
+app.post('/api/captain/product-masters', async (req, res) => {
+  try {
+    const {
+      companyId,
+      companyName,
+      captainId,
+      productName,
+      category,
+      subCategory,
+      productType,
+      description,
+      baseUom,
+      industry
+    } = req.body;
+
+    if (!productName || !category || !companyId) {
+      return res.status(400).json({ success: false, error: 'Company, Product Name, and Category are required.' });
+    }
+
+    const pmId = `PROD-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const result = await pool.query(
+      `INSERT INTO product_masters (
+        id, company_id, company_name, captain_id, product_name, category, sub_category, product_type, description, base_uom, industry, status
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING')
+       RETURNING *`,
+      [
+        pmId,
+        companyId,
+        companyName || 'Company',
+        captainId || 'USR-CAP-201',
+        productName.trim(),
+        category,
+        subCategory || category,
+        productType || 'Standard',
+        description || '',
+        baseUom || 'KG',
+        industry || 'General Industry'
+      ]
+    );
+
+    console.log(`📦 [PostgreSQL DB] Product Master Family Onboarded: ${productName} (ID: ${pmId}) under Company ${companyName}`);
+
+    res.json({
+      success: true,
+      message: `Product Master "${productName}" created successfully & sent for Admin Approval!`,
+      productMaster: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error creating product master:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 29. PUT /api/admin/product-masters/:id/status - Admin Approve/Reject Product Master
+app.put('/api/admin/product-masters/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'APPROVED' | 'REJECTED' | 'PENDING'
+    if (!status) {
+      return res.status(400).json({ success: false, error: 'Status is required.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE product_masters SET status = $1 WHERE id = $2 RETURNING *`,
+      [status, id]
+    );
+
+    console.log(`🛡️ [PostgreSQL DB] Admin updated Product Master ${id} Status to ${status}`);
+    res.json({ success: true, message: `Product Master status updated to ${status}`, productMaster: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// GRADE MASTER REST ENDPOINTS
+// ============================================================================
+
+// 30. GET /api/grades - Get all material grades
+app.get('/api/grades', async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM grade_masters ORDER BY grade_code ASC`);
+    const formatted = result.rows.map(g => ({
+      id: g.id,
+      gradeCode: g.grade_code,
+      gradeName: g.grade_name,
+      standard: g.standard,
+      standardGrade: g.standard_grade,
+      uns: g.uns,
+      en: g.en,
+      din: g.din,
+      chemicalComposition: g.chemical_composition,
+      mechanicalProperties: g.mechanical_properties,
+      hardness: g.hardness,
+      tensileStrength: g.tensile_strength,
+      yieldStrength: g.yield_strength,
+      createdAt: g.created_at
+    }));
+    res.json({ success: true, grades: formatted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 31. POST /api/grades - Create new Material Grade
+app.post('/api/grades', async (req, res) => {
+  try {
+    const {
+      gradeCode,
+      gradeName,
+      standard = 'ASTM',
+      standardGrade = '',
+      uns = '',
+      en = '',
+      din = '',
+      chemicalComposition = {},
+      mechanicalProperties = {},
+      hardness = '',
+      tensileStrength = '',
+      yieldStrength = ''
+    } = req.body;
+
+    if (!gradeCode || !gradeName) {
+      return res.status(400).json({ success: false, error: 'Grade Code and Grade Name are required.' });
+    }
+
+    const gradeId = `GRADE-${Math.floor(100 + Math.random() * 900)}`;
+    const result = await pool.query(
+      `INSERT INTO grade_masters (
+        id, grade_code, grade_name, standard, standard_grade, uns, en, din,
+        chemical_composition, mechanical_properties, hardness, tensile_strength, yield_strength
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *`,
+      [
+        gradeId, gradeCode.trim(), gradeName.trim(), standard, standardGrade, uns, en, din,
+        JSON.stringify(chemicalComposition), JSON.stringify(mechanicalProperties),
+        hardness, tensileStrength, yieldStrength
+      ]
+    );
+
+    console.log(`📐 [PostgreSQL DB] Grade Master Created: ${gradeCode} (${gradeName})`);
+    res.json({ success: true, message: `Grade Master ${gradeCode} created!`, grade: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// SKU MASTER REST ENDPOINTS
+// ============================================================================
+
+// 32. GET /api/captain/skus - Get SKUs with joined details
+app.get('/api/captain/skus', async (req, res) => {
+  try {
+    const { captainId, productId, manufacturerId } = req.query;
+    let query = `
+      SELECT 
+        s.*,
+        pm.product_name,
+        c.company_name,
+        g.grade_code,
+        u.first_name || ' ' || u.last_name as captain_name
+      FROM sku_masters s
+      LEFT JOIN product_masters pm ON s.product_id = pm.id
+      LEFT JOIN companies c ON s.manufacturer_id = c.id
+      LEFT JOIN grade_masters g ON s.grade_id = g.id
+      LEFT JOIN users u ON s.captain_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (captainId) {
+      params.push(captainId);
+      query += ` AND s.captain_id = $${params.length}`;
+    }
+    if (productId) {
+      params.push(productId);
+      query += ` AND s.product_id = $${params.length}`;
+    }
+    if (manufacturerId) {
+      params.push(manufacturerId);
+      query += ` AND s.manufacturer_id = $${params.length}`;
+    }
+
+    query += ` ORDER BY s.created_at DESC`;
+    const result = await pool.query(query, params);
+
+    const formatted = result.rows.map(s => ({
+      id: s.id,
+      skuCode: s.sku_code,
+      productId: s.product_id,
+      productName: s.product_name || 'Product Family',
+      manufacturerId: s.manufacturer_id,
+      companyName: s.company_name || 'Manufacturer',
+      captainId: s.captain_id,
+      captainName: s.captain_name || 'Captain',
+      brandId: s.brand_id || 'BRAND-001',
+      gradeId: s.grade_id,
+      gradeCode: s.grade_code || 'SS304',
+      finishId: s.finish_id || '2B',
+      thickness: s.thickness ? parseFloat(s.thickness) : 0,
+      thicknessUom: s.thickness_uom || 'MM',
+      width: s.width ? parseFloat(s.width) : 0,
+      widthUom: s.width_uom || 'MM',
+      length: s.length ? parseFloat(s.length) : 0,
+      lengthUom: s.length_uom || 'MM',
+      weight: s.weight ? parseFloat(s.weight) : 0,
+      weightUom: s.weight_uom || 'KG',
+      colorId: s.color_id || 'STANDARD',
+      standardId: s.standard_id || 'ASTM-A240',
+      countryOfOrigin: s.country_of_origin || 'India',
+      price: s.price ? parseFloat(s.price) : 0,
+      status: s.status || 'PENDING',
+      createdAt: s.created_at ? new Date(s.created_at).toISOString().split('T')[0] : '2026-08-18'
+    }));
+
+    res.json({ success: true, skus: formatted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 33. POST /api/captain/skus - Create new sellable SKU
+app.post('/api/captain/skus', async (req, res) => {
+  try {
+    const {
+      productId,
+      manufacturerId,
+      captainId,
+      skuCode,
+      brandId = 'BRAND-001',
+      gradeId,
+      finishId = '2B',
+      thickness = 1.5,
+      thicknessUom = 'MM',
+      width = 1220,
+      widthUom = 'MM',
+      length = 2440,
+      lengthUom = 'MM',
+      weight = 28.5,
+      weightUom = 'KG',
+      colorId = 'STANDARD',
+      standardId = 'ASTM-A240',
+      countryOfOrigin = 'India',
+      price = 0
+    } = req.body;
+
+    if (!productId || !manufacturerId) {
+      return res.status(400).json({ success: false, error: 'Product Master ID and Manufacturer Company ID are required.' });
+    }
+
+    const skuId = `SKU-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    // Auto-generate structured SKU Code if not provided
+    let finalSkuCode = skuCode;
+    if (!finalSkuCode || !finalSkuCode.trim()) {
+      let gCode = 'SS304';
+      if (gradeId) {
+        const gRes = await pool.query(`SELECT grade_code FROM grade_masters WHERE id = $1`, [gradeId]);
+        if (gRes.rows.length > 0) gCode = gRes.rows[0].grade_code;
+      }
+      finalSkuCode = `${gCode}-${finishId}-${width}-${length}-${thickness}${thicknessUom}`;
+    }
+
+    const result = await pool.query(
+      `INSERT INTO sku_masters (
+        id, sku_code, product_id, manufacturer_id, brand_id, grade_id, finish_id,
+        thickness, thickness_uom, width, width_uom, length, length_uom, weight, weight_uom,
+        color_id, standard_id, country_of_origin, price, status, captain_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'PENDING', $20)
+      RETURNING *`,
+      [
+        skuId, finalSkuCode, productId, manufacturerId, brandId, gradeId, finishId,
+        thickness, thicknessUom, width, widthUom, length, lengthUom, weight, weightUom,
+        colorId, standardId, countryOfOrigin, price, captainId || 'USR-CAP-201'
+      ]
+    );
+
+    console.log(`📦 [PostgreSQL DB] SKU Master Created: ${finalSkuCode} (ID: ${skuId})`);
+    res.json({ success: true, message: `SKU "${finalSkuCode}" created & sent for Admin Approval!`, sku: result.rows[0] });
+  } catch (err) {
+    console.error('Error creating SKU:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 34. PUT /api/admin/skus/:id/status - Admin Approve/Reject SKU
+app.put('/api/admin/skus/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'APPROVED' | 'REJECTED' | 'PENDING'
+    if (!status) {
+      return res.status(400).json({ success: false, error: 'Status is required.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE sku_masters SET status = $1 WHERE id = $2 RETURNING *`,
+      [status, id]
+    );
+
+    console.log(`🛡️ [PostgreSQL DB] Admin updated SKU Master ${id} Status to ${status}`);
+    res.json({ success: true, message: `SKU Master status updated to ${status}`, sku: result.rows[0] });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

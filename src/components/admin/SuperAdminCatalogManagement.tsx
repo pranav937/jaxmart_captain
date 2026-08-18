@@ -85,7 +85,7 @@ export const SuperAdminCatalogManagement: React.FC = () => {
 
     let backendProducts: FieldProduct[] = [];
     try {
-      const res = await fetch('http://localhost:3000/api/captain/field-products');
+      const res = await fetch('http://localhost:5000/api/captain/field-products');
       const data = await res.json();
       if (data.success && Array.isArray(data.products)) {
         backendProducts = data.products.map((p: any) => {
@@ -150,7 +150,7 @@ export const SuperAdminCatalogManagement: React.FC = () => {
     setNotificationToast(`✅ Field Product "${name}" APPROVED and added to Products Catalog!`);
 
     try {
-      await fetch(`http://localhost:3000/api/admin/field-products/${id}/approve`, {
+      await fetch(`http://localhost:5000/api/admin/field-products/${id}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'APPROVED' })
@@ -166,7 +166,7 @@ export const SuperAdminCatalogManagement: React.FC = () => {
     setNotificationToast(`❌ Field Product "${name}" REJECTED.`);
 
     try {
-      await fetch(`http://localhost:3000/api/admin/field-products/${id}/reject`, {
+      await fetch(`http://localhost:5000/api/admin/field-products/${id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'REJECTED' })
