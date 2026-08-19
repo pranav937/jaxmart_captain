@@ -9,11 +9,7 @@ const mockCategories: Category[] = [
   { id: 'CAT-003', name: 'Safety Gear & PPE', slug: 'safety-ppe', description: 'Helmets, safety goggles, gloves and boots' },
 ];
 
-const mockProducts: Product[] = [
-  { id: 'PRD-101', name: 'Heavy Duty Angle Grinder 850W', sku: 'SKU-TOOL-001', category: 'Industrial Hardware', price: 3499, stock: 120, sellerId: 'USR-SEL-301', sellerName: 'Apex Industrial Tools', captainName: 'juhi hada', status: 'APPROVED', updatedAt: '2026-08-11' },
-  { id: 'PRD-102', name: 'Industrial Circuit Breaker 63A 4P', sku: 'SKU-ELEC-002', category: 'Electrical & Electronics', price: 1250, stock: 450, sellerId: 'USR-SEL-302', sellerName: 'Gujarat Electricals', captainName: 'abc', status: 'APPROVED', updatedAt: '2026-08-11' },
-  { id: 'PRD-103', name: 'Steel Toe Executive Safety Boots', sku: 'SKU-SAFE-003', category: 'Safety Gear & PPE', price: 1899, stock: 200, sellerId: 'USR-SEL-303', sellerName: 'SafetyFirst Enterprise', captainName: 'pk pipaliya', status: 'APPROVED', updatedAt: '2026-08-10' },
-];
+const mockProducts: Product[] = [];
 
 export const AdminCatalogOperations: React.FC = () => {
   const { setNotificationToast } = useAuth();
@@ -51,7 +47,7 @@ export const AdminCatalogOperations: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-gray-200 shadow-jaxmart-card">
         <div>
@@ -76,9 +72,8 @@ export const AdminCatalogOperations: React.FC = () => {
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setActiveTab('PRODUCTS')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-                activeTab === 'PRODUCTS' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'PRODUCTS' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               <Package className="w-4 h-4" />
               <span>Managed Products ({products.length})</span>
@@ -86,9 +81,8 @@ export const AdminCatalogOperations: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('CATEGORIES')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-                activeTab === 'CATEGORIES' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'CATEGORIES' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               <FolderTree className="w-4 h-4" />
               <span>Categories ({categories.length})</span>

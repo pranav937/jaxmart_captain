@@ -3,18 +3,9 @@ import { useAuth } from '../../context/AuthContext';
 import { RFQ, Order, Product } from '../../types';
 import { Package, FileText, ShoppingCart, TrendingUp, CheckCircle, Clock } from 'lucide-react';
 
-const mockProducts: Product[] = [
-  { id: 'PRD-101', name: 'Heavy Duty Angle Grinder 850W', sku: 'SKU-TOOL-001', category: 'Industrial Hardware', price: 3499, stock: 120, sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', captainName: 'Amit Verma', status: 'APPROVED', updatedAt: '2026-08-11' },
-  { id: 'PRD-102', name: 'Industrial Circuit Breaker 63A 4P', sku: 'SKU-ELEC-002', category: 'Electrical & Electronics', price: 1250, stock: 450, sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', captainName: 'Amit Verma', status: 'APPROVED', updatedAt: '2026-08-11' },
-];
-
-const mockAssignedRfqs: RFQ[] = [
-  { id: 'RFQ-501', rfqNumber: 'RFQ-2026-001', customerName: 'Reliance Industrial Infra', sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', productName: 'Heavy Duty Angle Grinder 850W', quantity: 50, status: 'QUOTED', notes: 'Assigned to Captain Amit', createdAt: '2026-08-11' },
-];
-
-const mockOrders: Order[] = [
-  { id: 'ORD-701', orderNumber: 'ORD-2026-8801', buyerName: 'Reliance Industrial Infra', sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', captainName: 'Amit Verma', totalAmount: 165000, paymentStatus: 'PAID', status: 'DELIVERED', date: '2026-08-11', itemsCount: 50 },
-];
+const mockProducts: Product[] = [];
+const mockAssignedRfqs: RFQ[] = [];
+const mockOrders: Order[] = [];
 
 export const CaptainRFQsOrdersPerformance: React.FC = () => {
   const { setNotificationToast } = useAuth();
@@ -22,7 +13,7 @@ export const CaptainRFQsOrdersPerformance: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-gray-200 shadow-jaxmart-card">
         <div>
@@ -42,9 +33,8 @@ export const CaptainRFQsOrdersPerformance: React.FC = () => {
         <div className="flex items-center space-x-2 border-b border-gray-200 pb-3 overflow-x-auto">
           <button
             onClick={() => setActiveTab('PRODUCTS')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-              activeTab === 'PRODUCTS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'PRODUCTS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+              }`}
           >
             <Package className="w-4 h-4" />
             <span>Seller Products ({mockProducts.length})</span>
@@ -52,9 +42,8 @@ export const CaptainRFQsOrdersPerformance: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('RFQS')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-              activeTab === 'RFQS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'RFQS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+              }`}
           >
             <FileText className="w-4 h-4" />
             <span>Assigned RFQs ({mockAssignedRfqs.length})</span>
@@ -62,9 +51,8 @@ export const CaptainRFQsOrdersPerformance: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('ORDERS')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-              activeTab === 'ORDERS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'ORDERS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+              }`}
           >
             <ShoppingCart className="w-4 h-4" />
             <span>Track Orders ({mockOrders.length})</span>
@@ -72,9 +60,8 @@ export const CaptainRFQsOrdersPerformance: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('PERFORMANCE')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-              activeTab === 'PERFORMANCE' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'PERFORMANCE' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+              }`}
           >
             <TrendingUp className="w-4 h-4" />
             <span>My Performance</span>

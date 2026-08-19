@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Product, Category } from '../../types';
-import { Package, FolderTree, Plus, Search, Trash2, Tag, Check, X, Sparkles } from 'lucide-react';
+import { Package, FolderTree, Plus, Search, Trash2, Tag, Check, X, Sparkles, Ban } from 'lucide-react';
 
 interface FieldProduct {
   id: string;
@@ -26,36 +26,28 @@ const mockCategories: Category[] = [
   { id: 'CAT-005', name: 'Hand Tools', slug: 'hand-tools', description: 'Wrenches, screwdrivers, pliers and measuring tapes' }
 ];
 
-const mockProducts: Product[] = [
-  { id: 'PRD-101', name: 'Heavy Duty Angle Grinder 850W', sku: 'SKU-TOOL-001', category: 'Industrial Hardware', price: 3499, stock: 120, sellerId: 'USR-SEL-301', sellerName: 'Apex Industrial Tools', captainName: 'juhi hada', status: 'APPROVED', updatedAt: '2026-08-11' },
-  { id: 'PRD-102', name: 'Industrial Circuit Breaker 63A 4P', sku: 'SKU-ELEC-002', category: 'Electrical & Electronics', price: 1250, stock: 450, sellerId: 'USR-SEL-302', sellerName: 'Gujarat Electricals', captainName: 'abc', status: 'APPROVED', updatedAt: '2026-08-11' },
-  { id: 'PRD-103', name: 'Steel Toe Executive Safety Boots', sku: 'SKU-SAFE-003', category: 'Safety Gear & PPE', price: 1899, stock: 200, sellerId: 'USR-SEL-303', sellerName: 'SafetyFirst Enterprise', captainName: 'pk pipaliya', status: 'APPROVED', updatedAt: '2026-08-10' },
-];
+const mockProducts: Product[] = [];
 
 export const SuperAdminCatalogManagement: React.FC = () => {
   const { setNotificationToast, users } = useAuth();
   const [activeTab, setActiveTab] = useState<'PRODUCTS' | 'CATEGORIES' | 'FIELD_APPROVALS'>('PRODUCTS');
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [categories, setCategories] = useState<Category[]>(mockCategories);
-  const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>(() => {
+  const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>([]);
+  const [productMasters, setProductMasters] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Clear any old fake localStorage field products cache
+  useEffect(() => {
     try {
-      let localProducts: FieldProduct[] = [];
+      const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.includes('field_products')) {
-          const raw = localStorage.getItem(k);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) localProducts.push(...parsed);
-          }
-        }
+        if (k && k.includes('field_products')) keysToRemove.push(k);
       }
-      return localProducts;
-    } catch (e) {
-      return [];
-    }
-  });
-  const [searchQuery, setSearchQuery] = useState('');
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) { }
+  }, []);
 
   // New Category State
   const [showAddCatModal, setShowAddCatModal] = useState(false);
@@ -63,32 +55,18 @@ export const SuperAdminCatalogManagement: React.FC = () => {
   const [newCatDesc, setNewCatDesc] = useState('');
 
   useEffect(() => {
-    fetchFieldProducts();
-    const interval = setInterval(fetchFieldProducts, 3000);
+    fetchBackendData();
+    const interval = setInterval(fetchBackendData, 3000);
     return () => clearInterval(interval);
   }, [users]);
 
-  const fetchFieldProducts = async () => {
-    let localProducts: FieldProduct[] = [];
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.includes('field_products')) {
-          const raw = localStorage.getItem(k);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) localProducts.push(...parsed);
-          }
-        }
-      }
-    } catch (e) {}
-
-    let backendProducts: FieldProduct[] = [];
+  const fetchBackendData = async () => {
+    // 1. Fetch Field Products
     try {
       const res = await fetch('http://localhost:5000/api/captain/field-products');
       const data = await res.json();
       if (data.success && Array.isArray(data.products)) {
-        backendProducts = data.products.map((p: any) => {
+        const backendProducts: FieldProduct[] = data.products.map((p: any) => {
           const matchedUser = users.find(u => u.id === p.captain_id);
           return {
             id: p.id,
@@ -97,7 +75,7 @@ export const SuperAdminCatalogManagement: React.FC = () => {
             name: p.name,
             category: p.category,
             subCategory: p.sub_category,
-            price: parseFloat(p.price),
+            price: parseFloat(p.price || 0),
             color: p.color || 'Standard',
             imageUrl: p.image_url || '',
             colorImageUrl: p.color_image_url || p.image_url || '',
@@ -105,23 +83,26 @@ export const SuperAdminCatalogManagement: React.FC = () => {
             createdAt: p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : '2026-08-14'
           };
         });
+        setFieldProducts(backendProducts);
+      } else {
+        setFieldProducts([]);
       }
-    } catch (e) {}
+    } catch (e) {
+      setFieldProducts([]);
+    }
 
-    const mergedProdMap = new Map<string, FieldProduct>();
-    localProducts.forEach(p => {
-      if (p && p.id) {
-        const matchedUser = users.find(u => u.id === p.captainId);
-        mergedProdMap.set(p.id, {
-          ...p,
-          captainName: matchedUser ? matchedUser.name : (p.captainName || 'Captain')
-        });
+    // 2. Fetch Product Masters (Product Families)
+    try {
+      const resPm = await fetch('http://localhost:5000/api/captain/product-masters');
+      const dataPm = await resPm.json();
+      if (dataPm.success && Array.isArray(dataPm.productMasters)) {
+        setProductMasters(dataPm.productMasters);
+      } else {
+        setProductMasters([]);
       }
-    });
-    backendProducts.forEach(p => {
-      if (p && p.id) mergedProdMap.set(p.id, p);
-    });
-    setFieldProducts(Array.from(mergedProdMap.values()));
+    } catch (e) {
+      setProductMasters([]);
+    }
   };
 
   const syncLocalStorageProductStatus = (id: string, newStatus: 'APPROVED' | 'REJECTED') => {
@@ -145,13 +126,17 @@ export const SuperAdminCatalogManagement: React.FC = () => {
   };
 
   const handleApproveProduct = async (id: string, name: string) => {
+    setProductMasters(prev => prev.map(pm => pm.id === id ? { ...pm, status: 'APPROVED' } : pm));
     setFieldProducts(prev => prev.map(p => p.id === id ? { ...p, status: 'APPROVED' as const } : p));
     syncLocalStorageProductStatus(id, 'APPROVED');
-    setNotificationToast(`✅ Field Product "${name}" APPROVED and added to Products Catalog!`);
+    setNotificationToast(`✅ Product "${name}" APPROVED and added to Products Catalog!`);
 
     try {
-      await fetch(`http://localhost:5000/api/admin/field-products/${id}/approve`, {
-        method: 'POST',
+      const endpoint = id.startsWith('PROD-')
+        ? `http://localhost:5000/api/admin/product-masters/${id}/status`
+        : `http://localhost:5000/api/admin/field-products/${id}/status`;
+      await fetch(endpoint, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'APPROVED' })
       });
@@ -160,14 +145,38 @@ export const SuperAdminCatalogManagement: React.FC = () => {
     }
   };
 
-  const handleRejectProduct = async (id: string, name: string) => {
+  const handleDeactivateProduct = async (id: string, name: string) => {
+    setProductMasters(prev => prev.map(pm => pm.id === id ? { ...pm, status: 'REJECTED' } : pm));
     setFieldProducts(prev => prev.map(p => p.id === id ? { ...p, status: 'REJECTED' as const } : p));
     syncLocalStorageProductStatus(id, 'REJECTED');
-    setNotificationToast(`❌ Field Product "${name}" REJECTED.`);
+    setNotificationToast(`⚠️ Product "${name}" DEACTIVATED.`);
 
     try {
-      await fetch(`http://localhost:5000/api/admin/field-products/${id}/reject`, {
-        method: 'POST',
+      const endpoint = id.startsWith('PROD-')
+        ? `http://localhost:5000/api/admin/product-masters/${id}/status`
+        : `http://localhost:5000/api/admin/field-products/${id}/status`;
+      await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'REJECTED' })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRejectProduct = async (id: string, name: string) => {
+    setProductMasters(prev => prev.map(pm => pm.id === id ? { ...pm, status: 'REJECTED' } : pm));
+    setFieldProducts(prev => prev.map(p => p.id === id ? { ...p, status: 'REJECTED' as const } : p));
+    syncLocalStorageProductStatus(id, 'REJECTED');
+    setNotificationToast(`❌ Product "${name}" REJECTED.`);
+
+    try {
+      const endpoint = id.startsWith('PROD-')
+        ? `http://localhost:5000/api/admin/product-masters/${id}/status`
+        : `http://localhost:5000/api/admin/field-products/${id}/status`;
+      await fetch(endpoint, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'REJECTED' })
       });
@@ -196,27 +205,58 @@ export const SuperAdminCatalogManagement: React.FC = () => {
     if (!confirm(`Delete product "${name}"?`)) return;
     setProducts(prev => prev.filter(p => p.id !== id));
     setFieldProducts(prev => prev.filter(p => p.id !== id));
+    setProductMasters(prev => prev.filter(pm => pm.id !== id));
     setNotificationToast(`🗑️ Product "${name}" deleted.`);
   };
 
-  const pendingFieldProducts = fieldProducts.filter(p => p.status === 'PENDING');
-  const approvedFieldProducts = fieldProducts.filter(p => p.status === 'APPROVED');
+  const pendingFieldProducts = [
+    ...fieldProducts.filter(p => p.status === 'PENDING'),
+    ...productMasters.filter(pm => pm.status === 'PENDING').map(pm => ({
+      id: pm.id,
+      captainId: pm.captainId || 'USR-CAP-201',
+      captainName: pm.captainName || 'Captain',
+      name: pm.productName || pm.name,
+      category: pm.category,
+      subCategory: pm.subCategory || 'General',
+      price: pm.price ? parseFloat(pm.price) : 0,
+      color: 'Standard',
+      imageUrl: '',
+      colorImageUrl: '',
+      status: pm.status || 'PENDING',
+      createdAt: pm.createdAt || ''
+    }))
+  ];
 
-  const allCatalogProducts: Product[] = [
-    ...products,
-    ...approvedFieldProducts
-      .filter(p => !products.some(existing => existing.id === p.id))
+  const allCatalogProducts: (Product & { realStatus?: string })[] = [
+    ...products.map(p => ({ ...p, realStatus: p.status || 'APPROVED' })),
+    ...productMasters.map(pm => ({
+      id: pm.id,
+      name: pm.productName || pm.name,
+      sku: `SKU-${(pm.category || 'GEN').substring(0, 3).toUpperCase()}-MASTER`,
+      category: pm.category,
+      price: pm.price ? parseFloat(pm.price) : 0,
+      stock: 100,
+      sellerId: pm.companyId || 'USR-SEL-301',
+      sellerName: pm.companyName || 'Product Master Company',
+      captainName: pm.captainName || 'Captain',
+      status: (pm.status === 'APPROVED' ? 'APPROVED' : 'REJECTED') as any,
+      realStatus: pm.status || 'APPROVED',
+      updatedAt: pm.createdAt || ''
+    })),
+    ...fieldProducts
+      .filter(p => !productMasters.some(pm => pm.id === p.id) && !products.some(existing => existing.id === p.id))
       .map(p => ({
         id: p.id,
         name: p.name,
-        sku: `SKU-${p.category.substring(0, 3).toUpperCase()}-FIELD`,
+        sku: `SKU-${(p.category || 'GEN').substring(0, 3).toUpperCase()}-FIELD`,
         category: p.category,
         price: p.price,
         stock: 100,
         sellerId: 'USR-SEL-301',
-        sellerName: 'Approved Captain Submission',
+        sellerName: p.captainName ? `${p.captainName}'s Submission` : 'Captain Field Submission',
         captainName: p.captainName || 'Captain',
-        status: 'APPROVED' as const,
+        status: (p.status === 'APPROVED' ? 'APPROVED' : 'REJECTED') as any,
+        realStatus: p.status || 'PENDING',
         updatedAt: p.createdAt
       }))
   ];
@@ -235,7 +275,7 @@ export const SuperAdminCatalogManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-gray-200 shadow-jaxmart-card">
         <div>
@@ -262,9 +302,8 @@ export const SuperAdminCatalogManagement: React.FC = () => {
           <div className="flex items-center space-x-2 overflow-x-auto w-full sm:w-auto">
             <button
               onClick={() => setActiveTab('PRODUCTS')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all whitespace-nowrap ${
-                activeTab === 'PRODUCTS' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all whitespace-nowrap ${activeTab === 'PRODUCTS' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               <Package className="w-4 h-4" />
               <span>Products Catalog ({allCatalogProducts.length})</span>
@@ -272,9 +311,8 @@ export const SuperAdminCatalogManagement: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('FIELD_APPROVALS')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all whitespace-nowrap ${
-                activeTab === 'FIELD_APPROVALS' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all whitespace-nowrap ${activeTab === 'FIELD_APPROVALS' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               <Sparkles className="w-4 h-4 text-amber-400" />
               <span>Captain Submissions Queue ({pendingFieldProducts.length})</span>
@@ -282,9 +320,8 @@ export const SuperAdminCatalogManagement: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('CATEGORIES')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all whitespace-nowrap ${
-                activeTab === 'CATEGORIES' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all whitespace-nowrap ${activeTab === 'CATEGORIES' ? 'bg-jaxmart-navy text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               <FolderTree className="w-4 h-4" />
               <span>Category Tree ({categories.length})</span>
@@ -311,46 +348,89 @@ export const SuperAdminCatalogManagement: React.FC = () => {
                 <tr>
                   <th className="p-3">Product Name & SKU</th>
                   <th className="p-3">Category</th>
-                  <th className="p-3">Seller & Captain</th>
+                  <th className="p-3">Seller / Company & Captain</th>
                   <th className="p-3">Price & Stock</th>
-                  <th className="p-3 text-right">Actions</th>
+                  <th className="p-3 text-center">Status</th>
+                  <th className="p-3 text-right">Super Admin Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {filteredProducts.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50/80">
-                    <td className="p-3">
-                      <div className="font-bold text-jaxmart-navy">{p.name}</div>
-                      <div className="text-[10px] text-gray-400 font-mono">{p.sku}</div>
-                    </td>
-
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 bg-blue-50 text-jaxmart-primary font-semibold rounded text-[10px]">
-                        {p.category}
-                      </span>
-                    </td>
-
-                    <td className="p-3">
-                      <div className="font-medium text-jaxmart-navy">{p.sellerName}</div>
-                      <div className="text-[10px] text-gray-500">Supervised by: {p.captainName}</div>
-                    </td>
-
-                    <td className="p-3">
-                      <div className="font-extrabold text-jaxmart-navy">₹{p.price.toLocaleString('en-IN')}</div>
-                      <div className="text-[10px] text-emerald-600 font-medium">Stock: {p.stock} units</div>
-                    </td>
-
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => handleDeleteProduct(p.id, p.name)}
-                        className="p-1 text-gray-400 hover:text-jaxmart-error rounded hover:bg-red-50"
-                        title="Delete Product"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                {filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-gray-400">
+                      No products added yet. Once Captains submit products, they will appear here automatically!
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredProducts.map(p => {
+                    const isApproved = p.realStatus === 'APPROVED';
+                    const isPending = p.realStatus === 'PENDING';
+                    return (
+                      <tr key={p.id} className="hover:bg-gray-50/80">
+                        <td className="p-3">
+                          <div className="font-bold text-jaxmart-navy">{p.name}</div>
+                          <div className="text-[10px] text-gray-400 font-mono">{p.sku}</div>
+                        </td>
+
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 bg-blue-50 text-jaxmart-primary font-semibold rounded text-[10px]">
+                            {p.category}
+                          </span>
+                        </td>
+
+                        <td className="p-3">
+                          <div className="font-medium text-jaxmart-navy">{p.sellerName}</div>
+                          <div className="text-[10px] text-gray-500">Captain: {p.captainName}</div>
+                        </td>
+
+                        <td className="p-3">
+                          <div className="font-extrabold text-jaxmart-navy">₹{p.price.toLocaleString('en-IN')}</div>
+                          <div className="text-[10px] text-emerald-600 font-medium">Stock: {p.stock} units</div>
+                        </td>
+
+                        <td className="p-3 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${isApproved ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                              isPending ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                'bg-red-100 text-red-800 border border-red-200'
+                            }`}>
+                            {isApproved ? 'ACTIVE' : isPending ? 'PENDING' : 'DEACTIVATED'}
+                          </span>
+                        </td>
+
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            {isApproved ? (
+                              <button
+                                onClick={() => handleDeactivateProduct(p.id, p.name)}
+                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-colors shadow-sm inline-flex items-center space-x-1"
+                                title="Deactivate Product"
+                              >
+                                <Ban className="w-3.5 h-3.5" />
+                                <span>Deactivate</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleApproveProduct(p.id, p.name)}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition-colors shadow-sm inline-flex items-center space-x-1"
+                                title="Activate / Approve Product"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>{isPending ? 'Approve' : 'Activate'}</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteProduct(p.id, p.name)}
+                              className="p-1 text-gray-400 hover:text-jaxmart-error rounded hover:bg-red-50"
+                              title="Delete Product"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -405,11 +485,10 @@ export const SuperAdminCatalogManagement: React.FC = () => {
                       </td>
 
                       <td className="p-3">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
                           p.status === 'REJECTED' ? 'bg-red-100 text-jaxmart-error' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>
+                            'bg-amber-100 text-amber-800'
+                          }`}>
                           {p.status}
                         </span>
                       </td>

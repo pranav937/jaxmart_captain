@@ -173,8 +173,8 @@ export const CaptainTasksFollowups: React.FC = () => {
                       key={st}
                       onClick={() => handleUpdateTaskStatus(t.id, st)}
                       className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${t.status === st
-                          ? st === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-sm' : st === 'IN_PROGRESS' ? 'bg-blue-600 text-white shadow-sm' : 'bg-amber-500 text-white shadow-sm'
-                          : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-100'
+                        ? st === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-sm' : st === 'IN_PROGRESS' ? 'bg-blue-600 text-white shadow-sm' : 'bg-amber-500 text-white shadow-sm'
+                        : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-100'
                         }`}
                     >
                       {st.replace('_', ' ')}

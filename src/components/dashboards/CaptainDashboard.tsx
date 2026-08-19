@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { OnboardedCompany, ProductMaster, SkuMaster, GradeMaster } from '../../types';
+import { OnboardedCompany, ProductMaster } from '../../types';
 import { CompanyMasterModal } from '../captain/CompanyMasterModal';
 import { CompanyDetailViewModal } from '../captain/CompanyDetailViewModal';
 import { ProductMasterModal } from '../captain/ProductMasterModal';
-import { SkuMasterModal } from '../captain/SkuMasterModal';
-import { GradeMasterModal } from '../captain/GradeMasterModal';
 import {
   MapPin,
   Clock,
@@ -29,9 +27,7 @@ import {
   Layers,
   X,
   Check,
-  Eye,
-  Scale,
-  Maximize2
+  Eye
 } from 'lucide-react';
 
 interface AttendanceRecord {
@@ -93,18 +89,12 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
   const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>([]);
   const [submittingProduct, setSubmittingProduct] = useState(false);
 
-  // Company, Product Master & SKU Master State
+  // Company & Product Master Onboarding State
   const [companies, setCompanies] = useState<OnboardedCompany[]>([]);
   const [productMasters, setProductMasters] = useState<ProductMaster[]>([]);
-  const [skus, setSkus] = useState<SkuMaster[]>([]);
-  const [grades, setGrades] = useState<GradeMaster[]>([]);
-
   const [showOnboardModal, setShowOnboardModal] = useState(false);
   const [showMasterOnboardModal, setShowMasterOnboardModal] = useState<boolean>(false);
   const [showProductMasterModal, setShowProductMasterModal] = useState<boolean>(false);
-  const [showSkuMasterModal, setShowSkuMasterModal] = useState<boolean>(false);
-  const [showGradeMasterModal, setShowGradeMasterModal] = useState<boolean>(false);
-
   const [viewCompanyId, setViewCompanyId] = useState<string | null>(null);
   const [cmpName, setCmpName] = useState('');
   const [cmpOwner, setCmpOwner] = useState('');
@@ -114,7 +104,6 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
   const [cmpCategories, setCmpCategories] = useState('Industrial Hardware, Power Tools');
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedCompanyForPm, setSelectedCompanyForPm] = useState<string | undefined>(undefined);
-  const [selectedProductForSku, setSelectedProductForSku] = useState<string | undefined>(undefined);
   const [selectedProductMasterId, setSelectedProductMasterId] = useState('');
 
   // Selling Product Form State
@@ -166,24 +155,18 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
     fetchBackendFieldProducts();
     fetchBackendCompanies();
     fetchBackendProductMasters();
-    fetchBackendGrades();
-    fetchBackendSkus();
 
     // Polling interval every 3 seconds for live Admin Approval status sync
     const interval = setInterval(() => {
       fetchBackendFieldProducts();
       fetchBackendCompanies();
       fetchBackendProductMasters();
-      fetchBackendGrades();
-      fetchBackendSkus();
     }, 3000);
 
     const onFocus = () => {
       fetchBackendFieldProducts();
       fetchBackendCompanies();
       fetchBackendProductMasters();
-      fetchBackendGrades();
-      fetchBackendSkus();
     };
     window.addEventListener('focus', onFocus);
 
@@ -226,30 +209,6 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
         const data = await res.json();
         if (data.success && Array.isArray(data.productMasters)) {
           setProductMasters(data.productMasters);
-        }
-      }
-    } catch (e) { }
-  };
-
-  const fetchBackendGrades = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/grades');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.grades)) {
-          setGrades(data.grades);
-        }
-      }
-    } catch (e) { }
-  };
-
-  const fetchBackendSkus = async () => {
-    try {
-      const res = await fetch(`http://localhost:5000/api/captain/skus?captainId=${currentUser.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.skus)) {
-          setSkus(data.skus);
         }
       }
     } catch (e) { }
@@ -752,11 +711,10 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                       <h3 className="font-bold text-jaxmart-navy text-sm">{c.companyName}</h3>
                       <p className="text-[10px] text-gray-400 font-mono">ID: {c.id} | GST: {c.gstin || 'N/A'}</p>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      c.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${c.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
                       c.status === 'REJECTED' ? 'bg-red-100 text-red-800 border border-red-200' :
-                      'bg-amber-100 text-amber-800 border border-amber-200'
-                    }`}>
+                        'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
                       {c.status}
                     </span>
                   </div>
@@ -855,11 +813,10 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                       </h3>
                       <p className="text-[10px] text-gray-400 font-mono">ID: {pm.id} | Company: <strong className="text-slate-700">{pm.companyName}</strong></p>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      pm.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${pm.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
                       pm.status === 'REJECTED' ? 'bg-red-100 text-red-800 border border-red-200' :
-                      'bg-amber-100 text-amber-800 border border-amber-200'
-                    }`}>
+                        'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
                       {pm.status}
                     </span>
                   </div>
@@ -880,128 +837,11 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-500">
+                <div className="pt-2 flex justify-between items-center text-[11px] text-slate-500">
                   <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                    📦 {pm.skusCount || skus.filter(s => s.productId === pm.id).length || 0} SKUs Linked
+                    📦 {pm.skusCount || 0} SKUs Linked
                   </span>
-                  {pm.status === 'APPROVED' ? (
-                    <button
-                      onClick={() => {
-                        setSelectedProductForSku(pm.id);
-                        setShowSkuMasterModal(true);
-                      }}
-                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-sm transition-all"
-                    >
-                      <Plus className="w-3 h-3" /> Onboard SKU
-                    </button>
-                  ) : (
-                    <span className="font-mono text-[10px]">{pm.createdAt}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 3. SKU MASTER CATALOG (SELLABLE ITEMS) SECTION */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-200 pb-3 gap-3">
-          <div className="flex items-center space-x-2">
-            <Tag className="w-5 h-5 text-indigo-600" />
-            <div>
-              <h2 className="text-base font-bold text-jaxmart-navy">
-                SKU Master Catalog — Sellable Item Variants ({skus.length})
-              </h2>
-              <p className="text-[11px] text-gray-500">Exact technical specifications, dimensions, material grade & finish combinations</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowGradeMasterModal(true)}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center space-x-1 border border-slate-300 transition-all"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-              <span>🧪 Grade Masters ({grades.length})</span>
-            </button>
-            <button
-              onClick={() => {
-                setSelectedProductForSku(undefined);
-                setShowSkuMasterModal(true);
-              }}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4 text-white" />
-              <span>Onboard SKU Master</span>
-            </button>
-          </div>
-        </div>
-
-        {skus.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
-            <Tag className="w-10 h-10 text-indigo-500 mx-auto opacity-70" />
-            <div>
-              <p className="font-bold text-sm text-jaxmart-navy">No SKU Masters Created Yet</p>
-              <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
-                Onboard exact sellable item variants (e.g. <em>SS304-2B-1220-2440-1.5MM</em>) under an approved Product Master family & Manufacturer.
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setSelectedProductForSku(undefined);
-                setShowSkuMasterModal(true);
-              }}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all inline-flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" /> Onboard SKU Master Now
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {skus.map(s => (
-              <div key={s.id} className="p-4 rounded-xl border border-indigo-100 bg-slate-50/70 space-y-2.5 text-xs flex flex-col justify-between shadow-sm">
-                <div>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-mono text-slate-400">ID: {s.id}</span>
-                      <h3 className="font-mono font-black text-indigo-950 text-sm tracking-tight text-blue-900">
-                        {s.skuCode}
-                      </h3>
-                      <p className="text-[11px] font-bold text-slate-700 mt-0.5">
-                        📦 {s.productName} | 🏢 {s.companyName}
-                      </p>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      s.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                      s.status === 'REJECTED' ? 'bg-red-100 text-red-800 border border-red-200' :
-                      'bg-amber-100 text-amber-800 border border-amber-200'
-                    }`}>
-                      {s.status}
-                    </span>
-                  </div>
-
-                  <div className="text-slate-700 text-[11px] mt-2 space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
-                    <div className="flex justify-between items-center">
-                      <span>Grade: <strong className="text-indigo-700 font-extrabold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">{s.gradeCode}</strong></span>
-                      <span>Finish: <strong className="text-slate-800">{s.finishId}</strong></span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 text-[10px] text-slate-500 pt-1 border-t border-slate-100">
-                      <div>Thick: <strong className="text-slate-800">{s.thickness} {s.thicknessUom}</strong></div>
-                      <div>Width: <strong className="text-slate-800">{s.width} {s.widthUom}</strong></div>
-                      <div>Length: <strong className="text-slate-800">{s.length} {s.lengthUom}</strong></div>
-                    </div>
-                    <div className="flex justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100">
-                      <span>Weight: <strong className="text-slate-800">{s.weight} {s.weightUom}</strong></span>
-                      <span>Origin: <strong>{s.countryOfOrigin}</strong></span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
-                  <div className="text-base font-black text-emerald-700">
-                    ₹{s.price ? s.price.toLocaleString('en-IN') : 'N/A'}
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-400">{s.createdAt}</span>
+                  <span className="font-mono text-[10px]">{pm.createdAt}</span>
                 </div>
               </div>
             ))}
@@ -1198,32 +1038,6 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
         captainId={currentUser?.id || 'USR-CAP-201'}
         approvedCompanies={companies.filter(c => c.status === 'APPROVED').length > 0 ? companies.filter(c => c.status === 'APPROVED') : companies}
         defaultCompanyId={selectedCompanyForPm}
-      />
-
-      {/* SKU MASTER ONBOARDING MODAL */}
-      <SkuMasterModal
-        isOpen={showSkuMasterModal}
-        onClose={() => setShowSkuMasterModal(false)}
-        onSuccess={(newSku) => {
-          fetchBackendSkus();
-          setNotificationToast(`🏷️ SKU Master "${newSku.skuCode}" onboarded & sent for Admin Approval!`);
-        }}
-        captainId={currentUser?.id || 'USR-CAP-201'}
-        approvedProducts={productMasters.filter(p => p.status === 'APPROVED').length > 0 ? productMasters.filter(p => p.status === 'APPROVED') : productMasters}
-        approvedCompanies={companies.filter(c => c.status === 'APPROVED').length > 0 ? companies.filter(c => c.status === 'APPROVED') : companies}
-        grades={grades}
-        defaultProductId={selectedProductForSku}
-      />
-
-      {/* GRADE MASTER SYSTEM MODAL */}
-      <GradeMasterModal
-        isOpen={showGradeMasterModal}
-        onClose={() => setShowGradeMasterModal(false)}
-        onSuccess={(newGrade) => {
-          fetchBackendGrades();
-          setNotificationToast(`🧪 Grade Master "${newGrade.gradeCode}" registered!`);
-        }}
-        grades={grades}
       />
 
     </div>

@@ -51,7 +51,7 @@ export const CaptainSellerOperations: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-gray-200 shadow-jaxmart-card">
         <div>
@@ -83,9 +83,8 @@ export const CaptainSellerOperations: React.FC = () => {
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setActiveTab('SELLERS')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-                activeTab === 'SELLERS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'SELLERS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               <Store className="w-4 h-4" />
               <span>Assigned Sellers ({mySellers.length})</span>
@@ -93,9 +92,8 @@ export const CaptainSellerOperations: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('CUSTOMERS')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-                activeTab === 'CUSTOMERS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === 'CUSTOMERS' ? 'bg-jaxmart-navy text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               <Users className="w-4 h-4" />
               <span>Assigned Customers ({myCustomers.length})</span>
@@ -153,9 +151,8 @@ export const CaptainSellerOperations: React.FC = () => {
                     </td>
 
                     <td className="p-3">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center w-fit space-x-1 ${
-                        u.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-jaxmart-error'
-                      }`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center w-fit space-x-1 ${u.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-jaxmart-error'
+                        }`}>
                         {u.status === 'ACTIVE' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                         <span>{u.status}</span>
                       </span>
@@ -165,11 +162,10 @@ export const CaptainSellerOperations: React.FC = () => {
                       <td className="p-3 text-right">
                         <button
                           onClick={() => updateUserStatus(u.id, u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')}
-                          className={`px-3 py-1 rounded text-xs font-bold transition-all ${
-                            u.status === 'ACTIVE'
-                              ? 'bg-red-50 text-jaxmart-error border border-red-200 hover:bg-red-100'
-                              : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm animate-pulse'
-                          }`}
+                          className={`px-3 py-1 rounded text-xs font-bold transition-all ${u.status === 'ACTIVE'
+                            ? 'bg-red-50 text-jaxmart-error border border-red-200 hover:bg-red-100'
+                            : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm animate-pulse'
+                            }`}
                         >
                           {u.status === 'ACTIVE' ? 'Deactivate' : '✓ Activate Seller Now'}
                         </button>

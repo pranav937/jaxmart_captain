@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Role, OnboardedCompany, ProductMaster, SkuMaster, GradeMaster } from '../../types';
+import { User, Role, OnboardedCompany, ProductMaster } from '../../types';
 import { CompanyDetailViewModal } from '../captain/CompanyDetailViewModal';
 import {
   Users,
@@ -19,9 +19,7 @@ import {
   DollarSign,
   AlertCircle,
   Eye,
-  Layers,
-  Scale,
-  Maximize2
+  Layers
 } from 'lucide-react';
 
 interface FieldProduct {
@@ -52,10 +50,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   // Field Products State - Fetched strictly from PostgreSQL DB
   const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>([]);
 
-  // Companies, Product Masters & SKUs State - Fetched strictly from PostgreSQL DB
+  // Companies & Product Masters State - Fetched strictly from PostgreSQL DB
   const [companies, setCompanies] = useState<OnboardedCompany[]>([]);
   const [productMasters, setProductMasters] = useState<ProductMaster[]>([]);
-  const [skus, setSkus] = useState<SkuMaster[]>([]);
   const [viewCompanyId, setViewCompanyId] = useState<string | null>(null);
 
   // Captain Filter State for Captain-wise Grouping
@@ -76,21 +73,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     fetchBackendProducts();
     fetchBackendCompanies();
     fetchBackendProductMasters();
-    fetchBackendSkus();
 
     // Poll for new Captain product & company submissions every 2 seconds & on window focus
     const interval = setInterval(() => {
       fetchBackendProducts();
       fetchBackendCompanies();
       fetchBackendProductMasters();
-      fetchBackendSkus();
     }, 2000);
 
     const onFocus = () => {
       fetchBackendProducts();
       fetchBackendCompanies();
       fetchBackendProductMasters();
-      fetchBackendSkus();
     };
     window.addEventListener('focus', onFocus);
 
@@ -175,40 +169,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     setNotificationToast(`❌ Product Master "${name}" REJECTED.`);
     try {
       await fetch(`http://localhost:5000/api/admin/product-masters/${id}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'REJECTED' })
-      });
-    } catch (e) { }
-  };
-
-  const fetchBackendSkus = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/captain/skus');
-      const data = await res.json();
-      if (data.success && Array.isArray(data.skus)) {
-        setSkus(data.skus);
-      }
-    } catch (e) { }
-  };
-
-  const handleApproveSku = async (id: string, code: string) => {
-    setSkus(prev => prev.map(s => s.id === id ? { ...s, status: 'APPROVED' as const } : s));
-    setNotificationToast(`✅ SKU Master "${code}" APPROVED!`);
-    try {
-      await fetch(`http://localhost:5000/api/admin/skus/${id}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'APPROVED' })
-      });
-    } catch (e) { }
-  };
-
-  const handleRejectSku = async (id: string, code: string) => {
-    setSkus(prev => prev.map(s => s.id === id ? { ...s, status: 'REJECTED' as const } : s));
-    setNotificationToast(`❌ SKU Master "${code}" REJECTED.`);
-    try {
-      await fetch(`http://localhost:5000/api/admin/skus/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'REJECTED' })
@@ -482,13 +442,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                       {c.captainName}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        c.status === 'APPROVED'
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          : c.status === 'REJECTED'
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${c.status === 'APPROVED'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : c.status === 'REJECTED'
                           ? 'bg-red-100 text-red-800 border border-red-200'
                           : 'bg-amber-100 text-amber-800 border border-amber-200'
-                      }`}>
+                        }`}>
                         {c.status}
                       </span>
                     </td>
@@ -588,13 +547,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                       {pm.captainName}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        pm.status === 'APPROVED'
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          : pm.status === 'REJECTED'
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${pm.status === 'APPROVED'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : pm.status === 'REJECTED'
                           ? 'bg-red-100 text-red-800 border border-red-200'
                           : 'bg-amber-100 text-amber-800 border border-amber-200'
-                      }`}>
+                        }`}>
                         {pm.status}
                       </span>
                     </td>
@@ -610,107 +568,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                           </button>
                           <button
                             onClick={() => handleRejectProductMaster(pm.id, pm.productName)}
-                            className="px-2.5 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-[11px] hover:bg-red-100 flex items-center space-x-1"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Reject</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-gray-400 italic">Action Taken</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* CAPTAIN SKU MASTER APPROVALS TABLE */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-jaxmart-card p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-          <div className="flex items-center space-x-2">
-            <Tag className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-base font-bold text-jaxmart-navy">
-              Captain SKU Master Approvals ({skus.length})
-            </h2>
-          </div>
-          <span className="text-xs text-gray-500 font-medium">
-            Inspect technical specifications (Grade, Finish, Dimensions, Weight) & approve sellable SKUs
-          </span>
-        </div>
-
-        {skus.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <Clock className="w-10 h-10 mx-auto text-gray-300 mb-2" />
-            <p className="font-semibold text-sm">No SKU Masters Submitted Yet</p>
-            <p className="text-xs text-gray-400 mt-1">When Captains onboard sellable SKU variants, they will appear here for Admin technical review.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                  <th className="py-3 px-4">SKU Code & ID</th>
-                  <th className="py-3 px-4">Product Family & Manufacturer</th>
-                  <th className="py-3 px-4">Grade & Finish</th>
-                  <th className="py-3 px-4">Dimensions & Weight</th>
-                  <th className="py-3 px-4">Price (₹)</th>
-                  <th className="py-3 px-4">Captain</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {skus.map(s => (
-                  <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-jaxmart-navy">
-                      <div className="font-mono text-indigo-950 font-black text-sm">{s.skuCode}</div>
-                      <div className="text-[10px] text-gray-400 font-mono">ID: {s.id}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-800 font-semibold">
-                      <div>📦 {s.productName}</div>
-                      <div className="text-[11px] text-slate-500 font-normal">🏢 {s.companyName}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-700">
-                      <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-extrabold text-[11px] mr-1 border border-indigo-100">{s.gradeCode}</span>
-                      <span className="text-[11px] text-slate-600 font-medium">Finish: {s.finishId}</span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-700 text-[11px]">
-                      <div>Size: <strong>{s.width}x{s.length} {s.widthUom}</strong> | Thick: <strong>{s.thickness} {s.thicknessUom}</strong></div>
-                      <div>Weight: <strong>{s.weight} {s.weightUom}</strong> | Standard: <strong>{s.standardId}</strong></div>
-                    </td>
-                    <td className="py-3.5 px-4 font-black text-emerald-700 text-sm">
-                      ₹{s.price ? s.price.toLocaleString('en-IN') : 0}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-800 font-medium">
-                      {s.captainName}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        s.status === 'APPROVED'
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          : s.status === 'REJECTED'
-                          ? 'bg-red-100 text-red-800 border border-red-200'
-                          : 'bg-amber-100 text-amber-800 border border-amber-200'
-                      }`}>
-                        {s.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      {s.status === 'PENDING' ? (
-                        <div className="flex items-center justify-end space-x-1.5">
-                          <button
-                            onClick={() => handleApproveSku(s.id, s.skuCode)}
-                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[11px] hover:bg-emerald-700 flex items-center space-x-1 shadow-sm"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Approve</span>
-                          </button>
-                          <button
-                            onClick={() => handleRejectSku(s.id, s.skuCode)}
                             className="px-2.5 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-[11px] hover:bg-red-100 flex items-center space-x-1"
                           >
                             <X className="w-3.5 h-3.5" />

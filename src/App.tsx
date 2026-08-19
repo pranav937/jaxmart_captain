@@ -43,12 +43,8 @@ const MainContent: React.FC = () => {
           return pageMatch as PageState;
         }
       }
-      const savedPage = localStorage.getItem('jaxmart_current_page');
-      if (savedPage === 'LOGIN' || savedPage === 'ADMIN_PANEL' || savedPage === 'LANDING') {
-        return savedPage as PageState;
-      }
     } catch (e) { }
-    return 'ADMIN_PANEL'; // Default to ADMIN_PANEL so refreshing keeps user on workspace
+    return 'LANDING'; // Default to Public Landing Page on every initial run/load
   };
 
   const [currentPage, setCurrentPageState] = useState<PageState>(getInitialPageState);

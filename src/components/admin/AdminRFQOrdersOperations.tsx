@@ -3,20 +3,9 @@ import { useAuth } from '../../context/AuthContext';
 import { RFQ, Order, Payment } from '../../types';
 import { FileText, ShoppingCart, CreditCard, BarChart3, CheckCircle2 } from 'lucide-react';
 
-const mockRfqs: RFQ[] = [
-  { id: 'RFQ-501', rfqNumber: 'RFQ-2026-001', customerName: 'Reliance Industrial Infra', sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', productName: 'Heavy Duty Angle Grinder 850W', quantity: 50, status: 'QUOTED', notes: 'Urgent bulk requirement', createdAt: '2026-08-11' },
-  { id: 'RFQ-502', rfqNumber: 'RFQ-2026-002', customerName: 'Tata Projects Ltd', sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', productName: 'Circuit Breaker 63A 4P', quantity: 200, status: 'PENDING', notes: 'Site delivery requirement', createdAt: '2026-08-12' },
-];
-
-const mockOrders: Order[] = [
-  { id: 'ORD-701', orderNumber: 'ORD-2026-8801', buyerName: 'Reliance Industrial Infra', sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', captainName: 'Amit Verma', totalAmount: 165000, paymentStatus: 'PAID', status: 'DELIVERED', date: '2026-08-11', itemsCount: 50 },
-  { id: 'ORD-702', orderNumber: 'ORD-2026-8802', buyerName: 'L&T Construction', sellerId: 'USR-SEL-301', sellerName: 'ABC Traders', captainName: 'Amit Verma', totalAmount: 245000, paymentStatus: 'PAID', status: 'SHIPPED', date: '2026-08-12', itemsCount: 120 },
-];
-
-const mockPayments: Payment[] = [
-  { id: 'PAY-801', paymentNumber: 'PAY-2026-9901', orderId: 'ORD-2026-8801', amount: 165000, paymentMethod: 'BANK_TRANSFER', status: 'COMPLETED', transactionRef: 'TXN-HDFC-998811', createdAt: '2026-08-11' },
-  { id: 'PAY-802', paymentNumber: 'PAY-2026-9902', orderId: 'ORD-2026-8802', amount: 245000, paymentMethod: 'UPI', status: 'COMPLETED', transactionRef: 'TXN-UPI-776655', createdAt: '2026-08-12' },
-];
+const mockRfqs: RFQ[] = [];
+const mockOrders: Order[] = [];
+const mockPayments: Payment[] = [];
 
 export const AdminRFQOrdersOperations: React.FC = () => {
   const { setNotificationToast } = useAuth();

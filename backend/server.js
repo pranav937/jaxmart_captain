@@ -329,50 +329,6 @@ async function initializeDbSchema() {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- 13. Grade Master Table
-      CREATE TABLE IF NOT EXISTS grade_masters (
-          id VARCHAR(64) PRIMARY KEY,
-          grade_code VARCHAR(64) NOT NULL UNIQUE,
-          grade_name VARCHAR(255) NOT NULL,
-          standard VARCHAR(64) DEFAULT 'ASTM',
-          standard_grade VARCHAR(64) DEFAULT '304',
-          uns VARCHAR(64) DEFAULT 'S30400',
-          en VARCHAR(64) DEFAULT '1.4301',
-          din VARCHAR(64) DEFAULT 'X5CrNi18-10',
-          chemical_composition JSONB DEFAULT '{}',
-          mechanical_properties JSONB DEFAULT '{}',
-          hardness VARCHAR(64),
-          tensile_strength VARCHAR(64),
-          yield_strength VARCHAR(64),
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-
-      -- 14. SKU Master Table
-      CREATE TABLE IF NOT EXISTS sku_masters (
-          id VARCHAR(64) PRIMARY KEY,
-          sku_code VARCHAR(128) NOT NULL,
-          product_id VARCHAR(64) REFERENCES product_masters(id) ON DELETE CASCADE,
-          manufacturer_id VARCHAR(64) REFERENCES companies(id) ON DELETE CASCADE,
-          brand_id VARCHAR(64),
-          grade_id VARCHAR(64) REFERENCES grade_masters(id) ON DELETE SET NULL,
-          finish_id VARCHAR(64),
-          thickness NUMERIC(10,2),
-          thickness_uom VARCHAR(16) DEFAULT 'MM',
-          width NUMERIC(10,2),
-          width_uom VARCHAR(16) DEFAULT 'MM',
-          length NUMERIC(10,2),
-          length_uom VARCHAR(16) DEFAULT 'MM',
-          weight NUMERIC(10,2),
-          weight_uom VARCHAR(16) DEFAULT 'KG',
-          color_id VARCHAR(64),
-          standard_id VARCHAR(64) DEFAULT 'ASTM-A240',
-          country_of_origin VARCHAR(64) DEFAULT 'India',
-          price NUMERIC(12,2) DEFAULT 0,
-          status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
-          captain_id VARCHAR(64),
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-
       DO $$ 
       BEGIN 
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='captain_field_products' AND column_name='product_master_id') THEN
@@ -381,17 +337,10 @@ async function initializeDbSchema() {
       END $$;
     `);
 
-    // Seed baseline accounts & grade masters into PostgreSQL database if missing
+    // Seed baseline accounts into PostgreSQL database if missing
     await client.query(`
       INSERT INTO users (id, email, mobile, password_hash, first_name, last_name, role, status, avatar_url, is_deleted) VALUES
-      ('USR-SA-001', 'jax@gmail.com', '+91 98765 43210', '123456', 'Super', 'Admin', 'SUPER_ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', FALSE),
-      ('USR-SA-002', 'superadmin@jaxmart.com', '+91 99999 88888', '123456', 'Main', 'SuperAdmin', 'SUPER_ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', FALSE)
-      ON CONFLICT (id) DO NOTHING;
-
-      INSERT INTO grade_masters (id, grade_code, grade_name, standard, standard_grade, uns, en, din, hardness, tensile_strength, yield_strength) VALUES
-      ('GRADE-001', 'SS304', 'Stainless Steel 304', 'ASTM', '304', 'S30400', '1.4301', 'X5CrNi18-10', '201 HB max', '515 MPa min', '205 MPa min'),
-      ('GRADE-002', 'SS316', 'Stainless Steel 316', 'ASTM', '316', 'S31600', '1.4401', 'X5CrNiMo17-12-2', '217 HB max', '515 MPa min', '205 MPa min'),
-      ('GRADE-003', 'SS202', 'Stainless Steel 202', 'ASTM', '202', 'S20200', '1.4373', 'X12CrNiMnN17-7-5', '241 HB max', '620 MPa min', '260 MPa min')
+      ('USR-SA-001', 'jax@gmail.com', '+91 98765 43210', '123456', 'Super', 'Admin', 'SUPER_ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', FALSE)
       ON CONFLICT (id) DO NOTHING;
     `);
 
@@ -855,7 +804,7 @@ app.get('/api/captain/companies', async (req, res) => {
          ORDER BY c.created_at DESC;`;
     const params = captainId ? [captainId] : [];
     const result = await pool.query(query, params);
-    
+
     // Map database snake_case to frontend camelCase
     const formatted = result.rows.map(r => ({
       id: r.id,
@@ -1377,239 +1326,6 @@ app.put('/api/admin/product-masters/:id/status', async (req, res) => {
 
     console.log(`🛡️ [PostgreSQL DB] Admin updated Product Master ${id} Status to ${status}`);
     res.json({ success: true, message: `Product Master status updated to ${status}`, productMaster: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================================
-// GRADE MASTER REST ENDPOINTS
-// ============================================================================
-
-// 30. GET /api/grades - Get all material grades
-app.get('/api/grades', async (req, res) => {
-  try {
-    const result = await pool.query(`SELECT * FROM grade_masters ORDER BY grade_code ASC`);
-    const formatted = result.rows.map(g => ({
-      id: g.id,
-      gradeCode: g.grade_code,
-      gradeName: g.grade_name,
-      standard: g.standard,
-      standardGrade: g.standard_grade,
-      uns: g.uns,
-      en: g.en,
-      din: g.din,
-      chemicalComposition: g.chemical_composition,
-      mechanicalProperties: g.mechanical_properties,
-      hardness: g.hardness,
-      tensileStrength: g.tensile_strength,
-      yieldStrength: g.yield_strength,
-      createdAt: g.created_at
-    }));
-    res.json({ success: true, grades: formatted });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 31. POST /api/grades - Create new Material Grade
-app.post('/api/grades', async (req, res) => {
-  try {
-    const {
-      gradeCode,
-      gradeName,
-      standard = 'ASTM',
-      standardGrade = '',
-      uns = '',
-      en = '',
-      din = '',
-      chemicalComposition = {},
-      mechanicalProperties = {},
-      hardness = '',
-      tensileStrength = '',
-      yieldStrength = ''
-    } = req.body;
-
-    if (!gradeCode || !gradeName) {
-      return res.status(400).json({ success: false, error: 'Grade Code and Grade Name are required.' });
-    }
-
-    const gradeId = `GRADE-${Math.floor(100 + Math.random() * 900)}`;
-    const result = await pool.query(
-      `INSERT INTO grade_masters (
-        id, grade_code, grade_name, standard, standard_grade, uns, en, din,
-        chemical_composition, mechanical_properties, hardness, tensile_strength, yield_strength
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING *`,
-      [
-        gradeId, gradeCode.trim(), gradeName.trim(), standard, standardGrade, uns, en, din,
-        JSON.stringify(chemicalComposition), JSON.stringify(mechanicalProperties),
-        hardness, tensileStrength, yieldStrength
-      ]
-    );
-
-    console.log(`📐 [PostgreSQL DB] Grade Master Created: ${gradeCode} (${gradeName})`);
-    res.json({ success: true, message: `Grade Master ${gradeCode} created!`, grade: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================================
-// SKU MASTER REST ENDPOINTS
-// ============================================================================
-
-// 32. GET /api/captain/skus - Get SKUs with joined details
-app.get('/api/captain/skus', async (req, res) => {
-  try {
-    const { captainId, productId, manufacturerId } = req.query;
-    let query = `
-      SELECT 
-        s.*,
-        pm.product_name,
-        c.company_name,
-        g.grade_code,
-        u.first_name || ' ' || u.last_name as captain_name
-      FROM sku_masters s
-      LEFT JOIN product_masters pm ON s.product_id = pm.id
-      LEFT JOIN companies c ON s.manufacturer_id = c.id
-      LEFT JOIN grade_masters g ON s.grade_id = g.id
-      LEFT JOIN users u ON s.captain_id = u.id
-      WHERE 1=1
-    `;
-    const params = [];
-
-    if (captainId) {
-      params.push(captainId);
-      query += ` AND s.captain_id = $${params.length}`;
-    }
-    if (productId) {
-      params.push(productId);
-      query += ` AND s.product_id = $${params.length}`;
-    }
-    if (manufacturerId) {
-      params.push(manufacturerId);
-      query += ` AND s.manufacturer_id = $${params.length}`;
-    }
-
-    query += ` ORDER BY s.created_at DESC`;
-    const result = await pool.query(query, params);
-
-    const formatted = result.rows.map(s => ({
-      id: s.id,
-      skuCode: s.sku_code,
-      productId: s.product_id,
-      productName: s.product_name || 'Product Family',
-      manufacturerId: s.manufacturer_id,
-      companyName: s.company_name || 'Manufacturer',
-      captainId: s.captain_id,
-      captainName: s.captain_name || 'Captain',
-      brandId: s.brand_id || 'BRAND-001',
-      gradeId: s.grade_id,
-      gradeCode: s.grade_code || 'SS304',
-      finishId: s.finish_id || '2B',
-      thickness: s.thickness ? parseFloat(s.thickness) : 0,
-      thicknessUom: s.thickness_uom || 'MM',
-      width: s.width ? parseFloat(s.width) : 0,
-      widthUom: s.width_uom || 'MM',
-      length: s.length ? parseFloat(s.length) : 0,
-      lengthUom: s.length_uom || 'MM',
-      weight: s.weight ? parseFloat(s.weight) : 0,
-      weightUom: s.weight_uom || 'KG',
-      colorId: s.color_id || 'STANDARD',
-      standardId: s.standard_id || 'ASTM-A240',
-      countryOfOrigin: s.country_of_origin || 'India',
-      price: s.price ? parseFloat(s.price) : 0,
-      status: s.status || 'PENDING',
-      createdAt: s.created_at ? new Date(s.created_at).toISOString().split('T')[0] : '2026-08-18'
-    }));
-
-    res.json({ success: true, skus: formatted });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 33. POST /api/captain/skus - Create new sellable SKU
-app.post('/api/captain/skus', async (req, res) => {
-  try {
-    const {
-      productId,
-      manufacturerId,
-      captainId,
-      skuCode,
-      brandId = 'BRAND-001',
-      gradeId,
-      finishId = '2B',
-      thickness = 1.5,
-      thicknessUom = 'MM',
-      width = 1220,
-      widthUom = 'MM',
-      length = 2440,
-      lengthUom = 'MM',
-      weight = 28.5,
-      weightUom = 'KG',
-      colorId = 'STANDARD',
-      standardId = 'ASTM-A240',
-      countryOfOrigin = 'India',
-      price = 0
-    } = req.body;
-
-    if (!productId || !manufacturerId) {
-      return res.status(400).json({ success: false, error: 'Product Master ID and Manufacturer Company ID are required.' });
-    }
-
-    const skuId = `SKU-${Math.floor(100000 + Math.random() * 900000)}`;
-
-    // Auto-generate structured SKU Code if not provided
-    let finalSkuCode = skuCode;
-    if (!finalSkuCode || !finalSkuCode.trim()) {
-      let gCode = 'SS304';
-      if (gradeId) {
-        const gRes = await pool.query(`SELECT grade_code FROM grade_masters WHERE id = $1`, [gradeId]);
-        if (gRes.rows.length > 0) gCode = gRes.rows[0].grade_code;
-      }
-      finalSkuCode = `${gCode}-${finishId}-${width}-${length}-${thickness}${thicknessUom}`;
-    }
-
-    const result = await pool.query(
-      `INSERT INTO sku_masters (
-        id, sku_code, product_id, manufacturer_id, brand_id, grade_id, finish_id,
-        thickness, thickness_uom, width, width_uom, length, length_uom, weight, weight_uom,
-        color_id, standard_id, country_of_origin, price, status, captain_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'PENDING', $20)
-      RETURNING *`,
-      [
-        skuId, finalSkuCode, productId, manufacturerId, brandId, gradeId, finishId,
-        thickness, thicknessUom, width, widthUom, length, lengthUom, weight, weightUom,
-        colorId, standardId, countryOfOrigin, price, captainId || 'USR-CAP-201'
-      ]
-    );
-
-    console.log(`📦 [PostgreSQL DB] SKU Master Created: ${finalSkuCode} (ID: ${skuId})`);
-    res.json({ success: true, message: `SKU "${finalSkuCode}" created & sent for Admin Approval!`, sku: result.rows[0] });
-  } catch (err) {
-    console.error('Error creating SKU:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 34. PUT /api/admin/skus/:id/status - Admin Approve/Reject SKU
-app.put('/api/admin/skus/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body; // 'APPROVED' | 'REJECTED' | 'PENDING'
-    if (!status) {
-      return res.status(400).json({ success: false, error: 'Status is required.' });
-    }
-
-    const result = await pool.query(
-      `UPDATE sku_masters SET status = $1 WHERE id = $2 RETURNING *`,
-      [status, id]
-    );
-
-    console.log(`🛡️ [PostgreSQL DB] Admin updated SKU Master ${id} Status to ${status}`);
-    res.json({ success: true, message: `SKU Master status updated to ${status}`, sku: result.rows[0] });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

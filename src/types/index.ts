@@ -273,51 +273,5 @@ export interface ProductMaster {
   skusCount?: number;
 }
 
-export interface GradeMaster {
-  id: string;
-  gradeCode: string;
-  gradeName: string;
-  standard: string;
-  standardGrade: string;
-  uns?: string;
-  en?: string;
-  din?: string;
-  chemicalComposition?: Record<string, string | number>;
-  mechanicalProperties?: Record<string, string | number>;
-  hardness?: string;
-  tensileStrength?: string;
-  yieldStrength?: string;
-  createdAt?: string;
-}
-
-export interface SkuMaster {
-  id: string;
-  skuCode: string;
-  productId: string;
-  productName?: string;
-  manufacturerId: string;
-  companyName?: string;
-  captainId?: string;
-  captainName?: string;
-  brandId?: string;
-  gradeId?: string;
-  gradeCode?: string;
-  finishId?: string;
-  thickness?: number;
-  thicknessUom?: string;
-  width?: number;
-  widthUom?: string;
-  length?: number;
-  lengthUom?: string;
-  weight?: number;
-  weightUom?: string;
-  colorId?: string;
-  standardId?: string;
-  countryOfOrigin?: string;
-  price?: number;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'INACTIVE';
-  createdAt: string;
-}
-
 
 

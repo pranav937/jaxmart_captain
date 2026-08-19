@@ -48,25 +48,11 @@ const defaultUsers: User[] = [
     avatarUrl: '',
     createdDate: new Date().toISOString().split('T')[0],
     lastLogin: 'Just Now',
-  },
-  {
-    id: 'USR-SA-002',
-    name: 'Main SuperAdmin',
-    firstName: 'Main',
-    lastName: 'SuperAdmin',
-    email: 'superadmin@jaxmart.com',
-    mobile: '+91 99999 88888',
-    role: 'SUPER_ADMIN',
-    status: 'ACTIVE',
-    avatarUrl: '',
-    createdDate: new Date().toISOString().split('T')[0],
-    lastLogin: 'Just Now',
   }
 ];
 
 const defaultPasswords: Record<string, string> = {
   'jax@gmail.com': '123456',
-  'superadmin@jaxmart.com': '123456',
 };
 
 const defaultAuditLogs: ActivityLog[] = [
@@ -406,11 +392,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const formattedEmail = emailInput.trim().toLowerCase();
 
     if (role === 'SUPER_ADMIN') {
-      const validSuperAdminEmails = ['jax@gmail.com', 'superadmin@jaxmart.com'];
+      const validSuperAdminEmails = ['jax@gmail.com'];
       if (!validSuperAdminEmails.includes(formattedEmail) && !users.some(u => u.email.toLowerCase() === formattedEmail && u.role === 'SUPER_ADMIN')) {
         return {
           success: false,
-          message: `❌ Invalid Super Admin Email! Authorized accounts: Jax@gmail.com or superadmin@jaxmart.com`
+          message: `❌ Invalid Super Admin Email! Authorized account: Jax@gmail.com`
         };
       }
     }
