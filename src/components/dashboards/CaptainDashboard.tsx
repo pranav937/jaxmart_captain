@@ -184,15 +184,15 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
         if (data.success && Array.isArray(data.companies)) {
           const formatted: OnboardedCompany[] = data.companies.map((c: any) => ({
             id: c.id,
-            captainId: c.captain_id,
-            captainName: c.captain_name || currentUser.name,
-            companyName: c.company_name,
-            ownerName: c.owner_name || '',
+            captainId: c.captain_id || c.captainId,
+            captainName: c.captain_name || c.captainName || currentUser.name,
+            companyName: c.company_name || c.companyName || c.legal_name || c.legalName || c.brand_name || 'Business Entity',
+            ownerName: c.owner_name || c.ownerName || c.contact_person || (c.company_name ? `${c.company_name} Owner` : 'Company Owner'),
             gstin: c.gstin || '',
-            mobile: c.mobile || '',
+            mobile: c.mobile || c.phone || '',
             email: c.email || '',
             city: c.city || 'Surat',
-            sellingCategories: c.selling_categories || 'General',
+            sellingCategories: c.selling_categories || c.sellingCategories || 'General',
             status: c.status || 'PENDING',
             createdAt: c.created_at ? new Date(c.created_at).toISOString().split('T')[0] : todayStr
           }));
@@ -204,11 +204,23 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
 
   const fetchBackendProductMasters = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/captain/product-masters?captainId=${currentUser.id}`);
+      const res = await fetch(`http://localhost:5000/api/captain/product-masters`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.productMasters)) {
-          setProductMasters(data.productMasters);
+          const formatted = data.productMasters.map((pm: any) => {
+            const matchedCmp = companies.find(c => c.id === pm.company_id || c.id === pm.companyId);
+            const realCmpName = matchedCmp?.companyName || (pm.company_name && pm.company_name !== 'Company' ? pm.company_name : '') || pm.companyName || matchedCmp?.legalName || 'Business Entity';
+            return {
+              ...pm,
+              companyName: realCmpName,
+              productName: pm.product_name || pm.productName || pm.name,
+              subCategory: pm.sub_category || pm.subCategory,
+              baseUom: pm.base_uom || pm.baseUom,
+              captainName: pm.captain_name || pm.captainName || currentUser.name
+            };
+          });
+          setProductMasters(formatted);
         }
       }
     } catch (e) { }
@@ -223,7 +235,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
       captainId: currentUser?.id || 'USR-CAP-201',
       captainName: currentUser?.name || 'Captain',
       companyName: cmpName.trim(),
-      ownerName: cmpOwner,
+      ownerName: cmpOwner.trim() || `${cmpName.trim()} Owner`,
       gstin: cmpGstin,
       mobile: cmpMobile,
       email: '',
@@ -418,8 +430,28 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) setPrdImage(reader.result as string);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxWidth = 500;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            setPrdImage(canvas.toDataURL('image/jpeg', 0.8));
+          } else {
+            setPrdImage(event.target?.result as string);
+          }
+        };
       };
       reader.readAsDataURL(file);
     }
@@ -429,8 +461,28 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) setPrdColorImage(reader.result as string);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxWidth = 500;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            setPrdColorImage(canvas.toDataURL('image/jpeg', 0.8));
+          } else {
+            setPrdColorImage(event.target?.result as string);
+          }
+        };
       };
       reader.readAsDataURL(file);
     }
@@ -455,6 +507,9 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
     try {
       const captainFullName = (currentUser.name || `${currentUser.firstName || ''} ${currentUser.lastName || ''}`).trim() || 'Captain';
 
+      const safeImg = prdImage || 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400';
+      const safeColorImg = prdColorImage || safeImg;
+
       const newPrd: FieldProduct = {
         id: `FPRD-${Math.floor(100 + Math.random() * 900)}`,
         captainId: currentUser.id,
@@ -466,19 +521,11 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
         subCategory: prdSubCategory,
         price: parseFloat(prdPrice),
         color: prdColor,
-        imageUrl: prdImage,
-        colorImageUrl: prdColorImage,
+        imageUrl: safeImg,
+        colorImageUrl: safeColorImg,
         status: 'PENDING',
         createdAt: todayStr
       };
-
-      // Lightweight version for storage to prevent browser QuotaExceededError crashes on large photos
-      const safeImg = (prdImage && prdImage.length > 100000)
-        ? 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400'
-        : prdImage;
-      const safeColorImg = (prdColorImage && prdColorImage.length > 100000)
-        ? 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400'
-        : prdColorImage;
 
       const lightweightPrd: FieldProduct = {
         ...newPrd,
@@ -708,7 +755,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                 <div>
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-bold text-jaxmart-navy text-sm">{c.companyName}</h3>
+                      <h3 className="font-extrabold text-jaxmart-navy text-base">{c.companyName || (c as any).company_name || (c as any).legal_name || 'Business Entity'}</h3>
                       <p className="text-[10px] text-gray-400 font-mono">ID: {c.id} | GST: {c.gstin || 'N/A'}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${c.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
@@ -719,7 +766,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                     </span>
                   </div>
                   <div className="text-gray-600 text-[11px] mt-2 space-y-0.5">
-                    <div>Owner / Contact: <strong>{c.ownerName || c.contactPerson || 'N/A'}</strong> ({c.mobile || c.phone})</div>
+                    <div>Owner / Contact: <strong className="font-extrabold text-slate-900">{c.ownerName || (c as any).owner_name || (c as any).contact_person || (c.companyName ? `${c.companyName} Owner` : 'Company Owner')}</strong> ({c.mobile || c.email || (c as any).phone || 'N/A'})</div>
                     <div>Location: <strong>{c.city}, {c.state || 'Gujarat'}</strong></div>
                     <div>Type: <span className="font-bold text-slate-700">{c.companyType || 'Manufacturer'}</span> | Rating: <span className="font-black text-amber-600">{c.rating || 'A'}</span></div>
                     <div>Selling: <span className="text-jaxmart-teal font-semibold">{c.sellingCategories}</span></div>
@@ -769,16 +816,6 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
               <p className="text-[11px] text-gray-500">Top-level product families registered under Approved Companies (Product ≠ SKU)</p>
             </div>
           </div>
-          <button
-            onClick={() => {
-              setSelectedCompanyForPm(undefined);
-              setShowProductMasterModal(true);
-            }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-blue-600/20 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4 text-white" />
-            <span>Create Product Master</span>
-          </button>
         </div>
 
         {productMasters.length === 0 ? (
@@ -787,18 +824,9 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
             <div>
               <p className="font-bold text-sm text-jaxmart-navy">No Product Masters Created Yet</p>
               <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
-                Onboard a Product Master family (e.g. <em>Stainless Steel Sheet</em>, <em>PVC Conduit Pipe</em>) under an approved company.
+                Product Master families (e.g. <em>Stainless Steel Sheet</em>, <em>PVC Conduit Pipe</em>) onboarded under approved companies will appear here.
               </p>
             </div>
-            <button
-              onClick={() => {
-                setSelectedCompanyForPm(undefined);
-                setShowProductMasterModal(true);
-              }}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition-all inline-flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" /> Create Product Master Now
-            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -811,7 +839,7 @@ export const CaptainDashboard: React.FC<DashboardProps> = () => {
                         <Package className="w-4 h-4 text-blue-600" />
                         {pm.productName}
                       </h3>
-                      <p className="text-[10px] text-gray-400 font-mono">ID: {pm.id} | Company: <strong className="text-slate-700">{pm.companyName}</strong></p>
+                      <p className="text-[10px] text-gray-400 font-mono">ID: {pm.id} | Company: <strong className="text-slate-900 font-extrabold">{pm.companyName || (pm as any).company_name || 'Business Entity'}</strong></p>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${pm.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
                       pm.status === 'REJECTED' ? 'bg-red-100 text-red-800 border border-red-200' :

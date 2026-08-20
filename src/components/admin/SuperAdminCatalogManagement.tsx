@@ -35,7 +35,9 @@ export const SuperAdminCatalogManagement: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>(mockCategories);
   const [fieldProducts, setFieldProducts] = useState<FieldProduct[]>([]);
   const [productMasters, setProductMasters] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
   // Clear any old fake localStorage field products cache
   useEffect(() => {
@@ -61,7 +63,18 @@ export const SuperAdminCatalogManagement: React.FC = () => {
   }, [users]);
 
   const fetchBackendData = async () => {
-    // 1. Fetch Field Products
+    // 1. Fetch Companies
+    let currentCompanies: any[] = [];
+    try {
+      const resCmp = await fetch('http://localhost:5000/api/captain/companies');
+      const dataCmp = await resCmp.json();
+      if (dataCmp.success && Array.isArray(dataCmp.companies)) {
+        currentCompanies = dataCmp.companies;
+        setCompanies(dataCmp.companies);
+      }
+    } catch (e) { }
+
+    // 2. Fetch Field Products
     try {
       const res = await fetch('http://localhost:5000/api/captain/field-products');
       const data = await res.json();
@@ -91,7 +104,7 @@ export const SuperAdminCatalogManagement: React.FC = () => {
       setFieldProducts([]);
     }
 
-    // 2. Fetch Product Masters (Product Families)
+    // 3. Fetch Product Masters (Product Families)
     try {
       const resPm = await fetch('http://localhost:5000/api/captain/product-masters');
       const dataPm = await resPm.json();
@@ -211,38 +224,47 @@ export const SuperAdminCatalogManagement: React.FC = () => {
 
   const pendingFieldProducts = [
     ...fieldProducts.filter(p => p.status === 'PENDING'),
-    ...productMasters.filter(pm => pm.status === 'PENDING').map(pm => ({
-      id: pm.id,
-      captainId: pm.captainId || 'USR-CAP-201',
-      captainName: pm.captainName || 'Captain',
-      name: pm.productName || pm.name,
-      category: pm.category,
-      subCategory: pm.subCategory || 'General',
-      price: pm.price ? parseFloat(pm.price) : 0,
-      color: 'Standard',
-      imageUrl: '',
-      colorImageUrl: '',
-      status: pm.status || 'PENDING',
-      createdAt: pm.createdAt || ''
-    }))
+    ...productMasters.filter(pm => pm.status === 'PENDING').map(pm => {
+      const matchedCmp = companies.find(c => c.id === pm.companyId || c.id === pm.company_id);
+      const realCmpName = matchedCmp?.companyName || (pm.companyName && pm.companyName !== 'Company' ? pm.companyName : '') || matchedCmp?.legalName || 'Master Business Entity';
+      return {
+        id: pm.id,
+        captainId: pm.captainId || 'USR-CAP-201',
+        captainName: pm.captainName || 'Captain',
+        name: `${pm.productName || pm.name} (${realCmpName})`,
+        category: pm.category,
+        subCategory: pm.subCategory || 'General',
+        price: pm.price ? parseFloat(pm.price) : 0,
+        color: 'Standard',
+        imageUrl: pm.image_url || pm.imageUrl || '',
+        colorImageUrl: '',
+        status: pm.status || 'PENDING',
+        createdAt: pm.createdAt || ''
+      };
+    })
   ];
 
-  const allCatalogProducts: (Product & { realStatus?: string })[] = [
+  const allCatalogProducts: (Product & { realStatus?: string; imageUrl?: string })[] = [
     ...products.map(p => ({ ...p, realStatus: p.status || 'APPROVED' })),
-    ...productMasters.map(pm => ({
-      id: pm.id,
-      name: pm.productName || pm.name,
-      sku: `SKU-${(pm.category || 'GEN').substring(0, 3).toUpperCase()}-MASTER`,
-      category: pm.category,
-      price: pm.price ? parseFloat(pm.price) : 0,
-      stock: 100,
-      sellerId: pm.companyId || 'USR-SEL-301',
-      sellerName: pm.companyName || 'Product Master Company',
-      captainName: pm.captainName || 'Captain',
-      status: (pm.status === 'APPROVED' ? 'APPROVED' : 'REJECTED') as any,
-      realStatus: pm.status || 'APPROVED',
-      updatedAt: pm.createdAt || ''
-    })),
+    ...productMasters.map(pm => {
+      const matchedCmp = companies.find(c => c.id === pm.companyId || c.id === pm.company_id);
+      const realCmpName = matchedCmp?.companyName || (pm.companyName && pm.companyName !== 'Company' ? pm.companyName : '') || matchedCmp?.legalName || 'Master Business Entity';
+      return {
+        id: pm.id,
+        name: pm.productName || pm.name,
+        sku: `SKU-${(pm.category || 'GEN').substring(0, 3).toUpperCase()}-MASTER`,
+        category: pm.category,
+        price: pm.price ? parseFloat(pm.price) : 0,
+        stock: 100,
+        sellerId: pm.companyId || 'USR-SEL-301',
+        sellerName: realCmpName,
+        captainName: pm.captainName || 'Captain',
+        status: (pm.status === 'APPROVED' ? 'APPROVED' : 'REJECTED') as any,
+        realStatus: pm.status || 'APPROVED',
+        imageUrl: pm.image_url || pm.imageUrl || '',
+        updatedAt: pm.createdAt || ''
+      };
+    }),
     ...fieldProducts
       .filter(p => !productMasters.some(pm => pm.id === p.id) && !products.some(existing => existing.id === p.id))
       .map(p => ({
@@ -257,6 +279,7 @@ export const SuperAdminCatalogManagement: React.FC = () => {
         captainName: p.captainName || 'Captain',
         status: (p.status === 'APPROVED' ? 'APPROVED' : 'REJECTED') as any,
         realStatus: p.status || 'PENDING',
+        imageUrl: p.imageUrl || '',
         updatedAt: p.createdAt
       }))
   ];
@@ -346,6 +369,7 @@ export const SuperAdminCatalogManagement: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-jaxmart-bg text-jaxmart-navy font-bold uppercase tracking-wider border-b border-gray-200">
                 <tr>
+                  <th className="p-3">Image</th>
                   <th className="p-3">Product Name & SKU</th>
                   <th className="p-3">Category</th>
                   <th className="p-3">Seller / Company & Captain</th>
@@ -357,7 +381,7 @@ export const SuperAdminCatalogManagement: React.FC = () => {
               <tbody className="divide-y divide-gray-100 bg-white">
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-gray-400">
+                    <td colSpan={7} className="p-8 text-center text-gray-400">
                       No products added yet. Once Captains submit products, they will appear here automatically!
                     </td>
                   </tr>
@@ -367,6 +391,20 @@ export const SuperAdminCatalogManagement: React.FC = () => {
                     const isPending = p.realStatus === 'PENDING';
                     return (
                       <tr key={p.id} className="hover:bg-gray-50/80">
+                        <td className="p-3">
+                          {p.imageUrl ? (
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              className="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-sm cursor-pointer hover:scale-105 transition-transform"
+                              onClick={() => setSelectedImageModal(p.imageUrl || null)}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-jaxmart-blue font-bold">
+                              <Package className="w-5 h-5" />
+                            </div>
+                          )}
+                        </td>
                         <td className="p-3">
                           <div className="font-bold text-jaxmart-navy">{p.name}</div>
                           <div className="text-[10px] text-gray-400 font-mono">{p.sku}</div>
@@ -390,8 +428,8 @@ export const SuperAdminCatalogManagement: React.FC = () => {
 
                         <td className="p-3 text-center">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${isApproved ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                              isPending ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                                'bg-red-100 text-red-800 border border-red-200'
+                            isPending ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                              'bg-red-100 text-red-800 border border-red-200'
                             }`}>
                             {isApproved ? 'ACTIVE' : isPending ? 'PENDING' : 'DEACTIVATED'}
                           </span>
@@ -462,7 +500,18 @@ export const SuperAdminCatalogManagement: React.FC = () => {
                   filteredFieldProducts.map(p => (
                     <tr key={p.id} className="hover:bg-gray-50/80">
                       <td className="p-3">
-                        <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded-lg object-cover border" />
+                        {p.imageUrl ? (
+                          <img
+                            src={p.imageUrl}
+                            alt={p.name}
+                            className="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-sm cursor-pointer hover:scale-105 transition-transform"
+                            onClick={() => setSelectedImageModal(p.imageUrl || null)}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 font-bold">
+                            <Package className="w-5 h-5" />
+                          </div>
+                        )}
                       </td>
 
                       <td className="p-3">
@@ -573,6 +622,23 @@ export const SuperAdminCatalogManagement: React.FC = () => {
                 <button type="submit" className="px-3 py-1.5 bg-jaxmart-teal text-white font-semibold rounded-lg">Save Category</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* HIGH RES IMAGE ZOOM MODAL */}
+      {selectedImageModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedImageModal(null)}>
+          <div className="relative max-w-3xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-2 border border-white/20" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50">
+              <span className="text-xs font-bold text-gray-700">📸 High-Res Product Image Inspection</span>
+              <button onClick={() => setSelectedImageModal(null)} className="p-1 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 flex items-center justify-center bg-slate-950 rounded-b-xl min-h-[350px]">
+              <img src={selectedImageModal} alt="Zoomed Product" className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl" />
+            </div>
           </div>
         </div>
       )}

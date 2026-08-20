@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Product, Category } from '../../types';
 import { Package, FolderTree, Plus, Search, Tag, CheckCircle } from 'lucide-react';
@@ -9,12 +9,12 @@ const mockCategories: Category[] = [
   { id: 'CAT-003', name: 'Safety Gear & PPE', slug: 'safety-ppe', description: 'Helmets, safety goggles, gloves and boots' },
 ];
 
-const mockProducts: Product[] = [];
-
 export const AdminCatalogOperations: React.FC = () => {
-  const { setNotificationToast } = useAuth();
+  const { setNotificationToast, users } = useAuth();
   const [activeTab, setActiveTab] = useState<'PRODUCTS' | 'CATEGORIES'>('PRODUCTS');
-  const [products] = useState<Product[]>(mockProducts);
+  const [productMasters, setProductMasters] = useState<any[]>([]);
+  const [fieldProducts, setFieldProducts] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>(mockCategories);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -22,6 +22,38 @@ export const AdminCatalogOperations: React.FC = () => {
   const [showAddCatModal, setShowAddCatModal] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatDesc, setNewCatDesc] = useState('');
+
+  useEffect(() => {
+    fetchBackendCatalog();
+    const interval = setInterval(fetchBackendCatalog, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchBackendCatalog = async () => {
+    try {
+      const resCmp = await fetch('http://localhost:5000/api/captain/companies');
+      const dataCmp = await resCmp.json();
+      if (dataCmp.success && Array.isArray(dataCmp.companies)) {
+        setCompanies(dataCmp.companies);
+      }
+    } catch (e) {}
+
+    try {
+      const resPm = await fetch('http://localhost:5000/api/captain/product-masters');
+      const dataPm = await resPm.json();
+      if (dataPm.success && Array.isArray(dataPm.productMasters)) {
+        setProductMasters(dataPm.productMasters);
+      }
+    } catch (e) {}
+
+    try {
+      const resFp = await fetch('http://localhost:5000/api/captain/field-products');
+      const dataFp = await resFp.json();
+      if (dataFp.success && Array.isArray(dataFp.products)) {
+        setFieldProducts(dataFp.products);
+      }
+    } catch (e) {}
+  };
 
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +71,36 @@ export const AdminCatalogOperations: React.FC = () => {
     setShowAddCatModal(false);
   };
 
-  const filteredProducts = products.filter(p =>
+  const allLiveProducts = [
+    ...productMasters.map(pm => {
+      const matchedCmp = companies.find(c => c.id === pm.companyId || c.id === pm.company_id);
+      const realCmpName = matchedCmp?.companyName || (pm.companyName && pm.companyName !== 'Company' ? pm.companyName : '') || matchedCmp?.legalName || 'Business Entity';
+      return {
+        id: pm.id,
+        name: pm.productName || pm.product_name,
+        sku: `SKU-${(pm.category || 'GEN').substring(0, 3).toUpperCase()}-MASTER`,
+        category: pm.category || 'General',
+        price: pm.price ? parseFloat(pm.price) : 0,
+        stock: 100,
+        sellerName: realCmpName,
+        captainName: pm.captainName || pm.captain_name || 'Captain',
+        status: pm.status || 'APPROVED'
+      };
+    }),
+    ...fieldProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      sku: `SKU-${(p.category || 'GEN').substring(0, 3).toUpperCase()}-FIELD`,
+      category: p.category || 'General',
+      price: parseFloat(p.price || 0),
+      stock: 100,
+      sellerName: p.company_name || 'Field Entry',
+      captainName: p.captain_name || 'Captain',
+      status: p.status || 'APPROVED'
+    }))
+  ];
+
+  const filteredProducts = allLiveProducts.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.category.toLowerCase().includes(searchQuery.toLowerCase())
@@ -53,7 +114,7 @@ export const AdminCatalogOperations: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-jaxmart-navy">Products & Categories Operations</h1>
           <p className="text-xs text-gray-500 mt-1">
-            Supervise regional product listings, manage categories, and verify seller SKUs.
+            Supervise live product listings, manage categories, and verify seller SKUs from PostgreSQL Database.
           </p>
         </div>
 
@@ -76,7 +137,7 @@ export const AdminCatalogOperations: React.FC = () => {
                 }`}
             >
               <Package className="w-4 h-4" />
-              <span>Managed Products ({products.length})</span>
+              <span>Managed Products ({allLiveProducts.length})</span>
             </button>
 
             <button
@@ -109,43 +170,53 @@ export const AdminCatalogOperations: React.FC = () => {
                 <tr>
                   <th className="p-3">Product Name & SKU</th>
                   <th className="p-3">Category</th>
-                  <th className="p-3">Seller & Captain</th>
+                  <th className="p-3">Seller / Company & Captain</th>
                   <th className="p-3">Price & Stock</th>
                   <th className="p-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {filteredProducts.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50/80">
-                    <td className="p-3">
-                      <div className="font-bold text-jaxmart-navy">{p.name}</div>
-                      <div className="text-[10px] text-gray-400 font-mono">{p.sku}</div>
-                    </td>
-
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 bg-blue-50 text-jaxmart-primary font-semibold rounded text-[10px]">
-                        {p.category}
-                      </span>
-                    </td>
-
-                    <td className="p-3">
-                      <div className="font-medium text-jaxmart-navy">{p.sellerName}</div>
-                      <div className="text-[10px] text-gray-500">Captain: {p.captainName}</div>
-                    </td>
-
-                    <td className="p-3">
-                      <div className="font-extrabold text-jaxmart-navy">₹{p.price.toLocaleString('en-IN')}</div>
-                      <div className="text-[10px] text-emerald-600 font-medium">Stock: {p.stock} units</div>
-                    </td>
-
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded flex items-center w-fit space-x-1">
-                        <CheckCircle className="w-3 h-3" />
-                        <span>{p.status}</span>
-                      </span>
+                {filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-6 text-center text-gray-500 text-xs">
+                      No products found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredProducts.map(p => (
+                    <tr key={p.id} className="hover:bg-gray-50/80">
+                      <td className="p-3">
+                        <div className="font-bold text-jaxmart-navy">{p.name}</div>
+                        <div className="text-[10px] text-gray-400 font-mono">{p.sku}</div>
+                      </td>
+
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 bg-blue-50 text-jaxmart-primary font-semibold rounded text-[10px]">
+                          {p.category}
+                        </span>
+                      </td>
+
+                      <td className="p-3">
+                        <div className="font-bold text-jaxmart-navy">{p.sellerName}</div>
+                        <div className="text-[10px] text-gray-500">Captain: {p.captainName}</div>
+                      </td>
+
+                      <td className="p-3">
+                        <div className="font-extrabold text-jaxmart-navy">₹{p.price.toLocaleString('en-IN')}</div>
+                        <div className="text-[10px] text-emerald-600 font-medium">Stock: {p.stock} units</div>
+                      </td>
+
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 font-bold text-[10px] rounded flex items-center w-fit space-x-1 ${
+                          p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          <CheckCircle className="w-3 h-3" />
+                          <span>{p.status}</span>
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -210,3 +281,4 @@ export const AdminCatalogOperations: React.FC = () => {
     </div>
   );
 };
+

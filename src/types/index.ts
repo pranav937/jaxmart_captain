@@ -268,6 +268,7 @@ export interface ProductMaster {
   description: string;
   baseUom: 'KG' | 'PCS' | 'MTR' | 'TON' | 'LTR' | 'BOX' | 'SQFT' | string;
   industry: string;
+  imageUrl?: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'INACTIVE';
   createdAt: string;
   skusCount?: number;

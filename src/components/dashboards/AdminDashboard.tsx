@@ -54,6 +54,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   const [companies, setCompanies] = useState<OnboardedCompany[]>([]);
   const [productMasters, setProductMasters] = useState<ProductMaster[]>([]);
   const [viewCompanyId, setViewCompanyId] = useState<string | null>(null);
+  const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
   // Captain Filter State for Captain-wise Grouping
   const [selectedCaptainFilter, setSelectedCaptainFilter] = useState<string>('ALL');
@@ -101,15 +102,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       if (data.success && Array.isArray(data.companies)) {
         const formatted: OnboardedCompany[] = data.companies.map((c: any) => ({
           id: c.id,
-          captainId: c.captain_id,
-          captainName: c.captain_name || 'Captain',
-          companyName: c.company_name,
-          ownerName: c.owner_name || '',
+          captainId: c.captain_id || c.captainId,
+          captainName: c.captain_name || c.captainName || 'Captain',
+          companyName: c.company_name || c.companyName || c.legal_name || c.legalName || c.brand_name || 'Business Entity',
+          ownerName: c.owner_name || c.ownerName || c.contact_person || c.legal_name || 'N/A',
           gstin: c.gstin || '',
-          mobile: c.mobile || '',
+          mobile: c.mobile || c.phone || '',
           email: c.email || '',
           city: c.city || 'Surat',
-          sellingCategories: c.selling_categories || 'General',
+          sellingCategories: c.selling_categories || c.sellingCategories || 'General',
           status: c.status || 'PENDING',
           createdAt: c.created_at ? new Date(c.created_at).toISOString().split('T')[0] : '2026-08-12'
         }));
@@ -147,7 +148,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       const res = await fetch('http://localhost:5000/api/captain/product-masters');
       const data = await res.json();
       if (data.success && Array.isArray(data.productMasters)) {
-        setProductMasters(data.productMasters);
+        const formatted = data.productMasters.map((pm: any) => {
+          const matchedCmp = companies.find(c => c.id === pm.company_id || c.id === pm.companyId);
+          const realCmpName = matchedCmp?.companyName || (pm.company_name && pm.company_name !== 'Company' ? pm.company_name : '') || pm.companyName || matchedCmp?.legalName || 'Business Entity';
+          return {
+            ...pm,
+            companyName: realCmpName,
+            productName: pm.product_name || pm.productName || pm.name,
+            subCategory: pm.sub_category || pm.subCategory,
+            baseUom: pm.base_uom || pm.baseUom,
+            captainName: pm.captain_name || pm.captainName || 'Captain'
+          };
+        });
+        setProductMasters(formatted);
       }
     } catch (e) { }
   };
@@ -424,12 +437,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                 {companies.map(c => (
                   <tr key={c.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-jaxmart-navy">
-                      <div>{c.companyName}</div>
+                      <div className="text-sm font-extrabold text-jaxmart-navy">{c.companyName || (c as any).company_name || (c as any).legal_name || 'Business Entity'}</div>
                       <div className="text-[10px] text-gray-400 font-mono">ID: {c.id}</div>
                     </td>
                     <td className="py-3.5 px-4 text-gray-700">
-                      <div className="font-semibold">{c.ownerName || 'N/A'}</div>
-                      <div className="text-[11px] text-gray-500">{c.mobile || c.email}</div>
+                      <div className="font-bold text-gray-900">{c.ownerName || (c as any).owner_name || (c as any).contact_person || (c as any).legal_name || (c.companyName ? `${c.companyName} Owner` : 'Company Owner')}</div>
+                      <div className="text-[11px] text-gray-500 font-medium">{c.mobile || c.email || (c as any).phone || 'No Contact Phone'}</div>
                     </td>
                     <td className="py-3.5 px-4 text-gray-700 font-mono text-[11px]">
                       <div>GST: {c.gstin || 'N/A'}</div>
@@ -526,14 +539,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                 {productMasters.map(pm => (
                   <tr key={pm.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-jaxmart-navy">
-                      <div className="flex items-center gap-1.5">
-                        <Package className="w-4 h-4 text-jaxmart-blue" />
-                        <span>{pm.productName}</span>
+                      <div className="flex items-center gap-3">
+                        {(pm.imageUrl || (pm as any).image_url) ? (
+                          <img
+                            src={pm.imageUrl || (pm as any).image_url}
+                            alt={pm.productName}
+                            className="w-11 h-11 rounded-lg object-cover border border-slate-200 shadow-sm shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                            onClick={() => setSelectedImageModal(pm.imageUrl || (pm as any).image_url)}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-jaxmart-blue shrink-0 font-bold">
+                            <Package className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-extrabold text-jaxmart-navy">{pm.productName}</div>
+                          <div className="text-[10px] text-gray-400 font-mono">ID: {pm.id}</div>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-gray-400 font-mono">ID: {pm.id}</div>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-800 font-semibold">
-                      {pm.companyName}
+                    <td className="py-3.5 px-4 text-slate-800 font-extrabold">
+                      {pm.companyName || (pm as any).company_name || 'Business Entity'}
                     </td>
                     <td className="py-3.5 px-4 text-slate-700">
                       <div className="font-bold">{pm.category}</div>
@@ -700,6 +726,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
           handleRejectCompany(id, target?.companyName || 'Company');
         }}
       />
+
+      {/* HIGH RES IMAGE ZOOM MODAL FOR ADMIN */}
+      {selectedImageModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedImageModal(null)}>
+          <div className="relative max-w-3xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-2 border border-white/20" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50">
+              <span className="text-xs font-bold text-gray-700">📸 High-Res Product Image Inspection</span>
+              <button onClick={() => setSelectedImageModal(null)} className="p-1 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 flex items-center justify-center bg-slate-950 rounded-b-xl min-h-[350px]">
+              <img src={selectedImageModal} alt="Zoomed Product" className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl" />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
