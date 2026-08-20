@@ -225,7 +225,7 @@ export const CompanyMasterModal: React.FC<Props> = ({ isOpen, onClose, onSuccess
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
       <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-100 overflow-hidden my-8 transition-all">
-        
+
         {/* Header */}
         <div className="bg-gradient-to-r from-jaxmart-navy to-slate-900 px-6 py-4 text-white flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -255,11 +255,10 @@ export const CompanyMasterModal: React.FC<Props> = ({ isOpen, onClose, onSuccess
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-3 text-xs font-semibold whitespace-nowrap transition-colors border-b-2 ${
-                  isActive
+                className={`flex items-center gap-2 px-5 py-3 text-xs font-semibold whitespace-nowrap transition-colors border-b-2 ${isActive
                     ? 'border-jaxmart-navy text-jaxmart-navy bg-white'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                }`}
+                  }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-jaxmart-blue' : 'text-slate-400'}`} />
                 {tab.name}

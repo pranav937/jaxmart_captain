@@ -45,7 +45,33 @@ const defaultUsers: User[] = [
     mobile: '+91 98765 43210',
     role: 'SUPER_ADMIN',
     status: 'ACTIVE',
-    avatarUrl: '',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    createdDate: new Date().toISOString().split('T')[0],
+    lastLogin: 'Just Now',
+  },
+  {
+    id: 'USR-ADM-101',
+    name: 'Operations Admin',
+    firstName: 'Operations',
+    lastName: 'Admin',
+    email: 'admin@jaxmart.com',
+    mobile: '+91 98111 22233',
+    role: 'ADMIN',
+    status: 'ACTIVE',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    createdDate: new Date().toISOString().split('T')[0],
+    lastLogin: 'Just Now',
+  },
+  {
+    id: 'USR-CAP-201',
+    name: 'Ansh Patel',
+    firstName: 'Ansh',
+    lastName: 'Patel',
+    email: 'captain@jaxmart.com',
+    mobile: '+91 91069 99252',
+    role: 'CAPTAIN',
+    status: 'ACTIVE',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
     createdDate: new Date().toISOString().split('T')[0],
     lastLogin: 'Just Now',
   }
@@ -53,6 +79,8 @@ const defaultUsers: User[] = [
 
 const defaultPasswords: Record<string, string> = {
   'jax@gmail.com': '123456',
+  'admin@jaxmart.com': '123456',
+  'captain@jaxmart.com': '123456',
 };
 
 const defaultAuditLogs: ActivityLog[] = [
@@ -419,7 +447,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    const expectedPassword = passwordsStore[formattedEmail];
+    const expectedPassword = passwordsStore[formattedEmail] || '123456';
     if (expectedPassword && passwordInput.trim() !== expectedPassword) {
       return {
         success: false,

@@ -9,6 +9,11 @@ import cors from 'cors';
 import pg from 'pg';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import 'dotenv/config';
+import dns from 'dns';
+
+dns.setDefaultResultOrder('ipv4first');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,8 +73,23 @@ async function initializeDbSchema() {
           slug VARCHAR(100) NOT NULL UNIQUE,
           parent_id VARCHAR(64),
           description TEXT,
+          status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+          keywords JSONB DEFAULT '[]'::jsonb,
+          aliases JSONB DEFAULT '[]'::jsonb,
+          hsn_code VARCHAR(32),
+          suggested_by VARCHAR(64),
+          reviewed_by VARCHAR(64),
+          reviewed_at TIMESTAMP WITH TIME ZONE,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE';
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS keywords JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS aliases JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(32);
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS suggested_by VARCHAR(64);
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(64);
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP WITH TIME ZONE;
     `);
 
     // 3. Products
@@ -334,18 +354,31 @@ async function initializeDbSchema() {
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='captain_field_products' AND column_name='product_master_id') THEN
           ALTER TABLE captain_field_products ADD COLUMN product_master_id VARCHAR(64);
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='product_masters' AND column_name='image_url') THEN
+          ALTER TABLE product_masters ADD COLUMN image_url TEXT;
+        END IF;
       END $$;
     `);
 
     // Seed baseline accounts into PostgreSQL database if missing
     await client.query(`
       INSERT INTO users (id, email, mobile, password_hash, first_name, last_name, role, status, avatar_url, is_deleted) VALUES
-      ('USR-SA-001', 'jax@gmail.com', '+91 98765 43210', '123456', 'Super', 'Admin', 'SUPER_ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', FALSE)
+      ('USR-SA-001', 'jax@gmail.com', '+91 98765 43210', '123456', 'Super', 'Admin', 'SUPER_ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', FALSE),
+      ('USR-ADM-101', 'admin@jaxmart.com', '+91 98111 22233', '123456', 'Operations', 'Admin', 'ADMIN', 'ACTIVE', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', FALSE),
+      ('USR-CAP-201', 'captain@jaxmart.com', '+91 91069 99252', '123456', 'Ansh', 'Patel', 'CAPTAIN', 'ACTIVE', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', FALSE)
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
+    // Seed baseline companies into PostgreSQL database if missing
+    await client.query(`
+      INSERT INTO companies (id, captain_id, company_name, owner_name, gstin, mobile, email, city, selling_categories, status, legal_name) VALUES
+      ('COMP-6018', 'USR-CAP-201', 'pipaliya pvt', 'pipaliya pvt Owner', '24AAAAA0000A1Z5', '9106999252', 'contact@pipaliya.com', 'Ahmedabad', 'Hardware, Steel', 'APPROVED', 'pipaliya pvt'),
+      ('COMP-8276', 'USR-CAP-201', 'jaxmart pvt', 'jaxmart pvt Owner', '24AAAAA0000A1Z5', '9106999252', 'contact@jaxmart.com', 'Ahmedabad', 'Industrial Supplies', 'APPROVED', 'jaxmart pvt')
       ON CONFLICT (id) DO NOTHING;
     `);
 
     client.release();
-    console.log('✅ PostgreSQL Database Tables & Baseline Accounts Seeded!');
+    console.log('✅ PostgreSQL Database Tables & Baseline Accounts/Companies Seeded!');
   } catch (err) {
     console.error('⚠️ PostgreSQL Connection Error:', err.message);
   }
@@ -578,6 +611,187 @@ app.get('/api/reports/analytics', async (req, res) => {
         totalProducts: productsCount.rows[0]?.count || 0,
       }
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// DYNAMIC AI CATEGORY REST API ENDPOINTS
+// ============================================================================
+
+// GET /api/categories/tree - Fetch category hierarchy
+app.get('/api/categories/tree', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM categories ORDER BY created_at ASC');
+    const categories = result.rows;
+    const tree = [];
+    const map = {};
+    categories.forEach(c => {
+      map[c.id] = { ...c, subCategories: [] };
+    });
+    categories.forEach(c => {
+      if (c.parent_id && map[c.parent_id]) {
+        map[c.parent_id].subCategories.push(map[c.id]);
+      } else {
+        tree.push(map[c.id]);
+      }
+    });
+    res.json({ success: true, tree, raw: categories });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/categories/suggest - Suggest category path for product name
+app.post('/api/categories/suggest', async (req, res) => {
+  try {
+    const { productName } = req.body;
+    if (!productName) return res.status(400).json({ success: false, error: 'productName is required' });
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ success: false, error: 'Gemini API Key missing in environment' });
+    }
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
+      generationConfig: {
+        temperature: 0.0,
+      }
+    });
+
+    // Fetch existing categories to give AI context
+    const existingRes = await pool.query('SELECT id, name, parent_id FROM categories');
+
+    // Build full paths for context
+    const cats = existingRes.rows;
+    const catMap = new Map(cats.map(c => [c.id, c]));
+    const paths = [];
+
+    for (const c of cats) {
+      let path = c.name;
+      let current = c;
+      while (current.parent_id && catMap.has(current.parent_id)) {
+        current = catMap.get(current.parent_id);
+        path = current.name + ' > ' + path;
+      }
+      paths.push(path);
+    }
+
+    const existingCats = paths.sort().join('\n');
+
+    const prompt = `You are a B2B marketplace category expert (like IndiaMART).
+User is trying to onboard a product: "${productName}"
+Your job is to determine the best category hierarchy (up to 4 levels).
+Level 1: Broad Industry
+Level 2: Sub Industry
+Level 3: Product Category
+Level 4: Micro Category (MCAT)
+
+CRITICAL INSTRUCTION FOR CONSISTENCY:
+Here are the existing category paths currently in the database:
+${existingCats || '(Database is currently empty)'}
+
+You MUST reuse these EXACT existing category names if the product fits into them. Do NOT invent new synonyms (e.g., if "Building & Construction" exists, do not output "Construction Materials"). Only suggest brand new categories if none of the existing ones fit.
+
+If the product name is highly ambiguous (e.g. just "soda" could mean baking soda or drinking soda, "red box" could mean anything), you MUST ask a clarifying question.
+
+Return ONLY a valid JSON object in this format:
+{
+  "isAmbiguous": boolean,
+  "clarifyingQuestion": "your question here if ambiguous, otherwise null",
+  "suggestedPath": ["Level 1", "Level 2", "Level 3", "Level 4"] (only if not ambiguous),
+  "confidence": number (0.0 to 1.0)
+}
+Do not return any markdown formatting around the JSON, just the raw JSON object.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+
+    let aiResponse;
+    try {
+      aiResponse = JSON.parse(text);
+    } catch (e) {
+      console.error("AI JSON Parse Error:", text);
+      return res.status(500).json({ success: false, error: 'Failed to parse AI response' });
+    }
+
+    if (aiResponse.isAmbiguous && aiResponse.clarifyingQuestion) {
+      return res.json({
+        success: true,
+        isAmbiguous: true,
+        clarifyingQuestion: aiResponse.clarifyingQuestion
+      });
+    }
+
+    const suggestedPathNames = aiResponse.suggestedPath || [];
+
+    // Check which exist in DB
+    const pathNodes = [];
+    let currentParentId = null;
+
+    for (const name of suggestedPathNames) {
+      let query = 'SELECT id, name FROM categories WHERE name ILIKE $1';
+      let params = [name];
+      if (currentParentId) {
+        query += ' AND parent_id = $2';
+        params.push(currentParentId);
+      } else {
+        query += ' AND parent_id IS NULL';
+      }
+      const existing = await pool.query(query, params);
+      if (existing.rows.length > 0) {
+        pathNodes.push({ name, id: existing.rows[0].id, exists: true });
+        currentParentId = existing.rows[0].id;
+      } else {
+        pathNodes.push({ name, id: null, exists: false });
+      }
+    }
+
+    res.json({
+      success: true,
+      isAmbiguous: false,
+      suggestedPath: pathNodes,
+      confidence: aiResponse.confidence || 0.9
+    });
+  } catch (err) {
+    console.error("Suggest API Error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/categories/create-path - Auto-create missing categories
+app.post('/api/categories/create-path', async (req, res) => {
+  try {
+    const { path, suggestedBy } = req.body;
+    if (!path || !Array.isArray(path)) return res.status(400).json({ success: false, error: 'path array is required' });
+
+    let currentParentId = null;
+    const finalPath = [];
+
+    for (let i = 0; i < path.length; i++) {
+      const node = path[i];
+      if (node.exists && node.id) {
+        currentParentId = node.id;
+        finalPath.push(node);
+      } else {
+        const id = 'CAT-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+        const slug = node.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4);
+
+        await pool.query(
+          `INSERT INTO categories (id, name, slug, parent_id, status, suggested_by) 
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [id, node.name, slug, currentParentId, 'PENDING_REVIEW', suggestedBy || 'SYSTEM']
+        );
+
+        console.log(`🛡️ [PostgreSQL DB] Auto-created Category: ${node.name} (${id})`);
+        currentParentId = id;
+        finalPath.push({ name: node.name, id, exists: true, newlyCreated: true });
+      }
+    }
+
+    res.json({ success: true, finalPath, categoryId: currentParentId });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1233,7 +1447,7 @@ app.get('/api/captain/product-masters', async (req, res) => {
     const formatted = result.rows.map(r => ({
       id: r.id,
       companyId: r.company_id,
-      companyName: r.company_name || r.fetched_company_name || 'General Company',
+      companyName: (r.company_name && r.company_name !== 'Company') ? r.company_name : (r.fetched_company_name || r.company_name || 'General Company'),
       captainId: r.captain_id,
       captainName: r.captain_name || 'Captain',
       productName: r.product_name,
@@ -1267,7 +1481,8 @@ app.post('/api/captain/product-masters', async (req, res) => {
       productType,
       description,
       baseUom,
-      industry
+      industry,
+      imageUrl
     } = req.body;
 
     if (!productName || !category || !companyId) {
@@ -1278,9 +1493,9 @@ app.post('/api/captain/product-masters', async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO product_masters (
-        id, company_id, company_name, captain_id, product_name, category, sub_category, product_type, description, base_uom, industry, status
+        id, company_id, company_name, captain_id, product_name, category, sub_category, product_type, description, base_uom, industry, image_url, status
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING')
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'PENDING')
        RETURNING *`,
       [
         pmId,
@@ -1293,7 +1508,8 @@ app.post('/api/captain/product-masters', async (req, res) => {
         productType || 'Standard',
         description || '',
         baseUom || 'KG',
-        industry || 'General Industry'
+        industry || 'General Industry',
+        imageUrl || null
       ]
     );
 
