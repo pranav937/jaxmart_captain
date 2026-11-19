@@ -9,6 +9,11 @@ import cors from 'cors';
 import pg from 'pg';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import 'dotenv/config';
+import dns from 'dns';
+
+dns.setDefaultResultOrder('ipv4first');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,7 +26,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-const connectionString = process.env.DATABASE_URL || "postgresql://postgres:Jadequest%403009@localhost:5432/captain?schema=public";
+const connectionString = process.env.DATABASE_URL || "postgresql://postgres:Yash%403112@localhost:5432/captain?schema=public";
 
 const pool = new Pool({
   connectionString: connectionString,
@@ -68,8 +73,23 @@ async function initializeDbSchema() {
           slug VARCHAR(100) NOT NULL UNIQUE,
           parent_id VARCHAR(64),
           description TEXT,
+          status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+          keywords JSONB DEFAULT '[]'::jsonb,
+          aliases JSONB DEFAULT '[]'::jsonb,
+          hsn_code VARCHAR(32),
+          suggested_by VARCHAR(64),
+          reviewed_by VARCHAR(64),
+          reviewed_at TIMESTAMP WITH TIME ZONE,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE';
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS keywords JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS aliases JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(32);
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS suggested_by VARCHAR(64);
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(64);
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP WITH TIME ZONE;
     `);
 
     // 3. Products
@@ -1238,6 +1258,189 @@ app.put('/api/admin/companies/:id/status', async (req, res) => {
 
     console.log(`🛡️ [PostgreSQL DB] Admin updated Company ${id} Status to ${status}`);
     res.json({ success: true, message: `Company status updated to ${status}`, company: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// DYNAMIC CATEGORY REST API ENDPOINTS
+// ============================================================================
+
+// GET /api/categories/tree - Fetch category hierarchy
+app.get('/api/categories/tree', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM categories ORDER BY created_at ASC');
+    // Build tree
+    const categories = result.rows;
+    const tree = [];
+    const map = {};
+    categories.forEach(c => {
+      map[c.id] = { ...c, subCategories: [] };
+    });
+    categories.forEach(c => {
+      if (c.parent_id && map[c.parent_id]) {
+        map[c.parent_id].subCategories.push(map[c.id]);
+      } else {
+        tree.push(map[c.id]);
+      }
+    });
+    res.json({ success: true, tree, raw: categories });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/categories/suggest - Suggest category path for product name
+app.post('/api/categories/suggest', async (req, res) => {
+  try {
+    const { productName } = req.body;
+    if (!productName) return res.status(400).json({ success: false, error: 'productName is required' });
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ success: false, error: 'Gemini API Key missing' });
+    }
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ 
+      model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
+      generationConfig: {
+        temperature: 0.0,
+      }
+    });
+
+    // Fetch existing categories to give AI context
+    const existingRes = await pool.query('SELECT id, name, parent_id FROM categories');
+    
+    // Build full paths for context
+    const cats = existingRes.rows;
+    const catMap = new Map(cats.map(c => [c.id, c]));
+    const paths = [];
+    
+    for (const c of cats) {
+      let path = c.name;
+      let current = c;
+      while (current.parent_id && catMap.has(current.parent_id)) {
+        current = catMap.get(current.parent_id);
+        path = current.name + ' > ' + path;
+      }
+      paths.push(path);
+    }
+    
+    const existingCats = paths.sort().join('\n');
+
+    const prompt = `You are a B2B marketplace category expert (like IndiaMART).
+User is trying to onboard a product: "${productName}"
+Your job is to determine the best category hierarchy (up to 4 levels).
+Level 1: Broad Industry
+Level 2: Sub Industry
+Level 3: Product Category
+Level 4: Micro Category (MCAT)
+
+CRITICAL INSTRUCTION FOR CONSISTENCY:
+Here are the existing category paths currently in the database:
+${existingCats || '(Database is currently empty)'}
+
+You MUST reuse these EXACT existing category names if the product fits into them. Do NOT invent new synonyms (e.g., if "Building & Construction" exists, do not output "Construction Materials"). Only suggest brand new categories if none of the existing ones fit.
+
+If the product name is highly ambiguous (e.g. just "soda" could mean baking soda or drinking soda, "red box" could mean anything), you MUST ask a clarifying question.
+
+Return ONLY a valid JSON object in this format:
+{
+  "isAmbiguous": boolean,
+  "clarifyingQuestion": "your question here if ambiguous, otherwise null",
+  "suggestedPath": ["Level 1", "Level 2", "Level 3", "Level 4"] (only if not ambiguous),
+  "confidence": number (0.0 to 1.0)
+}
+Do not return any markdown formatting around the JSON, just the raw JSON object.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    
+    let aiResponse;
+    try {
+      aiResponse = JSON.parse(text);
+    } catch (e) {
+      console.error("AI JSON Parse Error:", text);
+      return res.status(500).json({ success: false, error: 'Failed to parse AI response' });
+    }
+
+    if (aiResponse.isAmbiguous && aiResponse.clarifyingQuestion) {
+      return res.json({
+        success: true,
+        isAmbiguous: true,
+        clarifyingQuestion: aiResponse.clarifyingQuestion
+      });
+    }
+
+    const suggestedPathNames = aiResponse.suggestedPath || [];
+
+    // Check which exist in DB
+    const pathNodes = [];
+    let currentParentId = null;
+    
+    for (const name of suggestedPathNames) {
+      let query = 'SELECT id, name FROM categories WHERE name ILIKE $1';
+      let params = [name];
+      if (currentParentId) {
+        query += ' AND parent_id = $2';
+        params.push(currentParentId);
+      } else {
+        query += ' AND parent_id IS NULL';
+      }
+      const existing = await pool.query(query, params);
+      if (existing.rows.length > 0) {
+        pathNodes.push({ name, id: existing.rows[0].id, exists: true });
+        currentParentId = existing.rows[0].id;
+      } else {
+        pathNodes.push({ name, id: null, exists: false });
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      isAmbiguous: false,
+      suggestedPath: pathNodes, 
+      confidence: aiResponse.confidence || 0.9 
+    });
+  } catch (err) {
+    console.error("Suggest API Error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/categories/create-path - Auto-create missing categories
+app.post('/api/categories/create-path', async (req, res) => {
+  try {
+    const { path, suggestedBy } = req.body; // path is array of { name: '...', id: '...', exists: bool }
+    if (!path || !Array.isArray(path)) return res.status(400).json({ success: false, error: 'path array is required' });
+
+    let currentParentId = null;
+    const finalPath = [];
+
+    for (let i = 0; i < path.length; i++) {
+      const node = path[i];
+      if (node.exists && node.id) {
+        currentParentId = node.id;
+        finalPath.push(node);
+      } else {
+        // Create new
+        const id = 'CAT-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+        const slug = node.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4);
+        
+        await pool.query(
+          `INSERT INTO categories (id, name, slug, parent_id, status, suggested_by) 
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [id, node.name, slug, currentParentId, 'PENDING_REVIEW', suggestedBy || 'SYSTEM']
+        );
+        
+        console.log(`🛡️ [PostgreSQL DB] Auto-created Category: ${node.name} (${id})`);
+        currentParentId = id;
+        finalPath.push({ name: node.name, id, exists: true, newlyCreated: true });
+      }
+    }
+
+    res.json({ success: true, finalPath, categoryId: currentParentId });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

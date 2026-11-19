@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Package, Building2, Layers, CheckCircle2, Info } from 'lucide-react';
+import { X, Package, Building2, Layers, CheckCircle2, Info, Sparkles } from 'lucide-react';
 import { OnboardedCompany, ProductMaster } from '../../types';
 
 interface Props {
@@ -32,39 +32,59 @@ export const ProductMasterModal: React.FC<Props> = ({
     }
   }, [defaultCompanyId, approvedCompanies, isOpen]);
   const [productName, setProductName] = useState('');
-  const [category, setCategory] = useState('Metals');
-  const [subCategory, setSubCategory] = useState('Stainless Steel');
   const [productType, setProductType] = useState('Sheet');
   const [baseUom, setBaseUom] = useState('KG');
   const [industry, setIndustry] = useState('Construction');
   const [description, setDescription] = useState('');
 
+  // AI Category State
+  const [suggestedPath, setSuggestedPath] = useState<{name: string, id: string | null, exists: boolean}[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [categoryAccepted, setCategoryAccepted] = useState(false);
+  const [suggestionConfidence, setSuggestionConfidence] = useState(0);
+  
+  const [clarifyingQuestion, setClarifyingQuestion] = useState<string | null>(null);
+  const [ambiguityAnswer, setAmbiguityAnswer] = useState('');
+
   if (!isOpen) return null;
 
-  const categoryMap: Record<string, { subCats: string[]; defaultType: string }> = {
-    'Metals': {
-      subCats: ['Stainless Steel', 'Carbon Steel', 'Aluminum', 'Copper & Brass', 'Alloy Steel'],
-      defaultType: 'Sheet'
-    },
-    'Industrial Hardware': {
-      subCats: ['Power Tools', 'Fasteners & Bolts', 'Bearings & Valves', 'Pneumatics & Fittings'],
-      defaultType: 'Tool'
-    },
-    'Electrical & Electronics': {
-      subCats: ['Circuit Breakers', 'Cables & Wires', 'Industrial Switches', 'Transformers'],
-      defaultType: 'Cable'
-    },
-    'Construction Supplies': {
-      subCats: ['Scaffolding Fixtures', 'Cement & Adhesives', 'Steel Rods & Rebar', 'Structural Beams'],
-      defaultType: 'Rod'
-    },
-    'Plumbing & Fluid Handling': {
-      subCats: ['PVC & CPVC Pipes', 'Industrial Valves', 'Pipe Fittings', 'Pumps'],
-      defaultType: 'Pipe'
+  const handleSuggestCategory = async (queryOverride?: string) => {
+    const query = queryOverride || productName.trim();
+    if (!query) return;
+    setIsSuggesting(true);
+    setClarifyingQuestion(null);
+    try {
+      const res = await fetch('http://localhost:5000/api/categories/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productName: query })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.isAmbiguous) {
+          setClarifyingQuestion(data.clarifyingQuestion);
+          setSuggestedPath([]);
+        } else {
+          setSuggestedPath(data.suggestedPath || []);
+          setSuggestionConfidence(data.confidence || 0);
+          setCategoryAccepted(false);
+        }
+      } else {
+        alert(data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error fetching AI category suggestion: ' + err);
+    } finally {
+      setIsSuggesting(false);
     }
   };
 
-  const currentSubCats = categoryMap[category]?.subCats || ['General'];
+  const handleAnswerSubmit = () => {
+    if (!ambiguityAnswer.trim()) return;
+    const combinedQuery = `${productName} (${ambiguityAnswer})`;
+    handleSuggestCategory(combinedQuery);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,24 +96,51 @@ export const ProductMasterModal: React.FC<Props> = ({
       alert('Please select an Approved Company.');
       return;
     }
+    if (!categoryAccepted || suggestedPath.length === 0) {
+      alert('Please Auto Suggest and Accept a Category before saving.');
+      return;
+    }
 
     const selectedCmp = approvedCompanies.find(c => c.id === selectedCompanyId);
     setLoading(true);
 
-    const payload = {
-      companyId: selectedCompanyId,
-      companyName: selectedCmp?.companyName || 'Company',
-      captainId: captainId || 'USR-CAP-201',
-      productName: productName.trim(),
-      category,
-      subCategory,
-      productType,
-      description,
-      baseUom,
-      industry
-    };
-
     try {
+      let finalPath = suggestedPath;
+      // Auto-create missing categories
+      const hasMissing = suggestedPath.some(p => !p.exists);
+      if (hasMissing) {
+        const catRes = await fetch('http://localhost:5000/api/categories/create-path', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: suggestedPath, suggestedBy: captainId || 'SYSTEM' })
+        });
+        const catData = await catRes.json();
+        if (catData.success) {
+          finalPath = catData.finalPath;
+        } else {
+          alert('Failed to auto-create category path: ' + catData.error);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Map dynamic path to existing legacy fields (category = L1, subCategory = L2/L3)
+      const topCategory = finalPath[0]?.name || 'General';
+      const subCat = finalPath.slice(1).map(p => p.name).join(' > ') || 'General';
+
+      const payload = {
+        companyId: selectedCompanyId,
+        companyName: selectedCmp?.companyName || 'Company',
+        captainId: captainId || 'USR-CAP-201',
+        productName: productName.trim(),
+        category: topCategory,
+        subCategory: subCat,
+        productType,
+        description,
+        baseUom,
+        industry
+      };
+
       const res = await fetch('http://localhost:5000/api/captain/product-masters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -186,39 +233,90 @@ export const ProductMasterModal: React.FC<Props> = ({
             />
           </div>
 
-          {/* Category & Sub Category */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
-              <select
-                value={category}
-                onChange={e => {
-                  setCategory(e.target.value);
-                  const firstSub = categoryMap[e.target.value]?.subCats[0] || 'General';
-                  setSubCategory(firstSub);
-                }}
-                className="w-full text-xs p-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-jaxmart-blue outline-none"
+          {/* Category Auto-Suggestion */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700">
+                AI Category Suggestion <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => handleSuggestCategory()}
+                disabled={isSuggesting || !productName.trim()}
+                className="text-xs px-3 py-1.5 bg-jaxmart-navy text-white rounded-lg font-bold hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1 transition-all"
               >
-                <option value="Metals">Metals</option>
-                <option value="Industrial Hardware">Industrial Hardware</option>
-                <option value="Electrical & Electronics">Electrical & Electronics</option>
-                <option value="Construction Supplies">Construction Supplies</option>
-                <option value="Plumbing & Fluid Handling">Plumbing & Fluid Handling</option>
-              </select>
+                {isSuggesting ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Suggesting...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Auto Suggest
+                  </>
+                )}
+              </button>
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Sub Category</label>
-              <select
-                value={subCategory}
-                onChange={e => setSubCategory(e.target.value)}
-                className="w-full text-xs p-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-jaxmart-blue outline-none"
-              >
-                {currentSubCats.map(sub => (
-                  <option key={sub} value={sub}>{sub}</option>
-                ))}
-              </select>
-            </div>
+            
+            {clarifyingQuestion ? (
+              <div className="space-y-3 p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                <div className="flex gap-2 text-purple-800 text-xs font-bold">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  <span>AI Needs Clarification:</span>
+                </div>
+                <p className="text-sm text-purple-900">{clarifyingQuestion}</p>
+                <div className="flex gap-2 mt-2">
+                  <input 
+                    type="text" 
+                    placeholder="E.g., It is drinking soda / 5mm thickness" 
+                    value={ambiguityAnswer}
+                    onChange={(e) => setAmbiguityAnswer(e.target.value)}
+                    className="flex-1 text-xs p-2 rounded-lg border border-purple-300 outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={handleAnswerSubmit}
+                    disabled={!ambiguityAnswer.trim() || isSuggesting}
+                    className="text-xs font-bold bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    Answer
+                  </button>
+                </div>
+              </div>
+            ) : suggestedPath.length > 0 ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2 p-3 bg-white border border-slate-200 rounded-lg">
+                  {suggestedPath.map((node, idx) => (
+                    <React.Fragment key={idx}>
+                      <span className={`text-xs font-bold px-2 py-1 rounded-md ${node.exists ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700 border border-amber-200 border-dashed'}`}>
+                        {node.name}
+                        {!node.exists && <span className="ml-1 text-[9px] uppercase tracking-wider text-amber-600">(New)</span>}
+                      </span>
+                      {idx < suggestedPath.length - 1 && <span className="text-slate-300">/</span>}
+                    </React.Fragment>
+                  ))}
+                </div>
+                {!categoryAccepted ? (
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setCategoryAccepted(true)} className="flex-1 text-xs font-bold py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors">
+                      Accept Suggestion
+                    </button>
+                    <button type="button" onClick={() => setSuggestedPath([])} className="flex-1 text-xs font-bold py-2 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors">
+                      Reject / Retry
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-xs font-bold text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" /> Category Accepted
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-500 text-center py-4 bg-white border border-slate-200 border-dashed rounded-lg">
+                Type a product name and click Auto Suggest to get the optimal category path.
+              </div>
+            )}
           </div>
 
           {/* Product Type, Base UOM, Industry */}
